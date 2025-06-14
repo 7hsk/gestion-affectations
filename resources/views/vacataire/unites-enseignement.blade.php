@@ -14,7 +14,7 @@
                             <i class="fas fa-book me-2"></i>Mes Unités d'Enseignement
                         </h5>
                         <span class="badge bg-light text-primary">
-                            {{ $affectations->total() }} UE(s) assignée(s)
+                            {{ $uesGrouped->total() }} UE(s) assignée(s)
                         </span>
                     </div>
                 </div>
@@ -76,18 +76,18 @@
 
     <!-- UEs Grid -->
     <div class="row">
-        @forelse($affectations as $affectation)
+        @forelse($uesGrouped as $ueGroup)
             <div class="col-lg-4 col-md-6 mb-4">
                 <div class="card h-100 border-0 shadow-sm ue-card">
                     <div class="card-header bg-gradient text-white position-relative overflow-hidden"
                          style="background: #7c3aed;">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
-                                <h6 class="mb-1 fw-bold">{{ $affectation->uniteEnseignement->code }}</h6>
-                                <small class="opacity-90">{{ $affectation->uniteEnseignement->filiere->nom }}</small>
+                                <h6 class="mb-1 fw-bold">{{ $ueGroup->ue->code }}</h6>
+                                <small class="opacity-90">{{ $ueGroup->ue->filiere->nom }}</small>
                             </div>
                             <span class="badge bg-white text-primary">
-                                {{ $affectation->uniteEnseignement->semestre }}
+                                {{ $ueGroup->ue->semestre }}
                             </span>
                         </div>
                         <!-- Decorative element -->
@@ -95,76 +95,71 @@
                             <i class="fas fa-book fa-3x"></i>
                         </div>
                     </div>
-                    
+
                     <div class="card-body">
                         <h6 class="card-title text-primary mb-3">
-                            {{ $affectation->uniteEnseignement->nom }}
+                            {{ $ueGroup->ue->nom }}
                         </h6>
-                        
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <div class="text-center p-2 bg-light rounded">
-                                    <small class="text-muted d-block">Heures CM</small>
-                                    <strong class="text-danger">{{ $affectation->uniteEnseignement->heures_cm ?? 0 }}h</strong>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="text-center p-2 bg-light rounded">
-                                    <small class="text-muted d-block">Heures TD</small>
-                                    <strong class="text-success">{{ $affectation->uniteEnseignement->heures_td ?? 0 }}h</strong>
-                                </div>
+
+                        <!-- Session Types Assigned -->
+                        <div class="mb-3">
+                            <small class="text-muted d-block mb-2">Types de séances assignées:</small>
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach($ueGroup->session_types as $type)
+                                    @php
+                                        $badgeClass = $type === 'CM' ? 'bg-danger' : ($type === 'TD' ? 'bg-success' : 'bg-info');
+                                    @endphp
+                                    <span class="badge {{ $badgeClass }}">{{ $type }}</span>
+                                @endforeach
                             </div>
                         </div>
-                        
+
+                        <!-- Hours Information -->
                         <div class="row g-2 mb-3">
-                            <div class="col-6">
+                            <div class="col-4">
                                 <div class="text-center p-2 bg-light rounded">
-                                    <small class="text-muted d-block">Heures TP</small>
-                                    <strong class="text-info">{{ $affectation->uniteEnseignement->heures_tp ?? 0 }}h</strong>
+                                    <small class="text-muted d-block">Heures CM</small>
+                                    <strong class="text-danger">{{ $ueGroup->ue->heures_cm ?? 0 }}h</strong>
                                 </div>
                             </div>
-                            <div class="col-6">
+                            <div class="col-4">
                                 <div class="text-center p-2 bg-light rounded">
-                                    <small class="text-muted d-block">Type</small>
-                                    <span class="badge bg-warning">{{ $affectation->type_seance ?? 'CM' }}</span>
+                                    <small class="text-muted d-block">Heures TD</small>
+                                    <strong class="text-success">{{ $ueGroup->ue->heures_td ?? 0 }}h</strong>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-center p-2 bg-light rounded">
+                                    <small class="text-muted d-block">Heures TP</small>
+                                    <strong class="text-info">{{ $ueGroup->ue->heures_tp ?? 0 }}h</strong>
                                 </div>
                             </div>
                         </div>
 
-                        @if($affectation->uniteEnseignement->specialite)
+                        @if($ueGroup->ue->specialite)
                             <div class="mb-3">
                                 <small class="text-muted">Spécialité requise:</small>
                                 <div class="mt-1">
-                                    <span class="badge bg-secondary">{{ $affectation->uniteEnseignement->specialite }}</span>
+                                    <span class="badge bg-secondary">{{ $ueGroup->ue->specialite }}</span>
                                 </div>
                             </div>
                         @endif
 
                         <div class="mb-3">
-                            <small class="text-muted">Statut de l'affectation:</small>
+                            <small class="text-muted">Statut:</small>
                             <div class="mt-1">
-                                @if($affectation->validee == 'valide')
-                                    <span class="badge bg-success">
-                                        <i class="fas fa-check me-1"></i>Validée
-                                    </span>
-                                @elseif($affectation->validee == 'en_attente')
-                                    <span class="badge bg-warning">
-                                        <i class="fas fa-clock me-1"></i>En attente
-                                    </span>
-                                @else
-                                    <span class="badge bg-danger">
-                                        <i class="fas fa-times me-1"></i>Rejetée
-                                    </span>
-                                @endif
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>{{ $ueGroup->total_affectations }} affectation(s) validée(s)
+                                </span>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="card-footer bg-transparent border-0">
-                        <div class="d-grid gap-2">
-                            <a href="{{ route('vacataire.ue.details', $affectation->uniteEnseignement->id) }}" 
+                        <div class="d-grid">
+                            <a href="{{ route('vacataire.ue.details', $ueGroup->ue->id) }}"
                                class="btn btn-primary btn-sm">
-                                <i class="fas fa-eye me-1"></i>Voir Détails
+                                <i class="fas fa-eye me-1"></i>VOIR DÉTAILS
                             </a>
                         </div>
                     </div>
@@ -198,11 +193,11 @@
     </div>
 
     <!-- Pagination -->
-    @if($affectations->hasPages())
+    @if($uesGrouped->hasPages())
         <div class="row mt-4">
             <div class="col-12">
                 <div class="d-flex justify-content-center">
-                    {{ $affectations->links() }}
+                    {{ $uesGrouped->links() }}
                 </div>
             </div>
         </div>
@@ -278,7 +273,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📚 VACATAIRE UEs PAGE INITIALIZED');
-    console.log('💜 Total UEs assigned:', {{ $affectations->total() }});
+    console.log('💜 Total UEs assigned:', {{ $uesGrouped->total() }});
     
     // Add hover effects to cards
     const ueCards = document.querySelectorAll('.ue-card');

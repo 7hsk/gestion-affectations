@@ -29,11 +29,11 @@ class EnseignantController extends Controller
         // Get current teaching assignments with detailed info
         $affectations = Affectation::where('user_id', $teacher->id)
             ->where('validee', 'valide')
-            ->with(['uniteEnseignement' => function($query) {
+            ->with(['uniteEnseignement' => function ($query) {
                 $query->where('est_vacant', false);
             }])
             ->get()
-            ->filter(function($affectation) {
+            ->filter(function ($affectation) {
                 return $affectation->uniteEnseignement !== null;
             });
 
@@ -42,7 +42,7 @@ class EnseignantController extends Controller
         // Calculate statistics
         $stats = [
             'total_ues' => $affectations->count(),
-            'total_hours' => $affectations->sum(function($affectation) {
+            'total_hours' => $affectations->sum(function ($affectation) {
                 $ue = $affectation->uniteEnseignement;
                 return $ue->heures_cm + $ue->heures_td + $ue->heures_tp;
             }),
@@ -103,7 +103,7 @@ class EnseignantController extends Controller
             ->where('validee', 'valide')
             ->with('uniteEnseignement.filiere')
             ->get()
-            ->sum(function($affectation) {
+            ->sum(function ($affectation) {
                 // Estimate students per UE based on filiere (this could be improved with actual enrollment data)
                 return 30; // Default estimate
             });
@@ -147,7 +147,7 @@ class EnseignantController extends Controller
         // Get current validated teaching assignments with their UEs
         $query = Affectation::where('user_id', $teacher->id)
             ->where('validee', 'valide')
-            ->with(['uniteEnseignement' => function($query) use ($teacherSpecialites) {
+            ->with(['uniteEnseignement' => function ($query) use ($teacherSpecialites) {
                 $query->where('est_vacant', false)
                     ->with(['filiere', 'departement'])
                     ->orderBy('semestre')
@@ -155,7 +155,7 @@ class EnseignantController extends Controller
 
                 // Filter by teacher's specialites if they exist
                 if (!empty($teacherSpecialites)) {
-                    $query->where(function($q) use ($teacherSpecialites) {
+                    $query->where(function ($q) use ($teacherSpecialites) {
                         foreach ($teacherSpecialites as $specialite) {
                             $q->orWhere('specialite', 'LIKE', '%' . trim($specialite) . '%');
                         }
@@ -165,44 +165,44 @@ class EnseignantController extends Controller
 
         // Apply filters if provided
         if ($request->filled('semestre')) {
-            $query->whereHas('uniteEnseignement', function($q) use ($request) {
+            $query->whereHas('uniteEnseignement', function ($q) use ($request) {
                 $q->where('semestre', $request->semestre);
             });
         }
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->whereHas('uniteEnseignement', function($q) use ($search) {
+            $query->whereHas('uniteEnseignement', function ($q) use ($search) {
                 $q->where('nom', 'LIKE', "%{$search}%")
-                  ->orWhere('code', 'LIKE', "%{$search}%");
+                    ->orWhere('code', 'LIKE', "%{$search}%");
             });
         }
 
         $affectations = $query->get();
 
         // Extract and group UEs by semester with additional data
-        $groupedUnites = $affectations->filter(function($affectation) {
+        $groupedUnites = $affectations->filter(function ($affectation) {
             return $affectation->uniteEnseignement !== null;
         })
-        ->map(function($affectation) {
-            $ue = $affectation->uniteEnseignement;
-            $ue->type_seance = $affectation->type_seance;
-            $ue->total_hours = $ue->heures_cm + $ue->heures_td + $ue->heures_tp;
+            ->map(function ($affectation) {
+                $ue = $affectation->uniteEnseignement;
+                $ue->type_seance = $affectation->type_seance;
+                $ue->total_hours = $ue->heures_cm + $ue->heures_td + $ue->heures_tp;
 
-            // Get student count for this UE (estimated)
-            $ue->student_count = 30; // This could be improved with actual enrollment data
+                // Get student count for this UE (estimated)
+                $ue->student_count = 30; // This could be improved with actual enrollment data
 
-            // Get notes statistics
-            $ue->notes_stats = $this->getNotesStatistics($ue->id);
+                // Get notes statistics
+                $ue->notes_stats = $this->getNotesStatistics($ue->id);
 
-            return $ue;
-        })
-        ->groupBy('semestre');
+                return $ue;
+            })
+            ->groupBy('semestre');
 
         // Calculate summary statistics
         $summary = [
             'total_ues' => $affectations->count(),
-            'total_hours' => $affectations->sum(function($affectation) {
+            'total_hours' => $affectations->sum(function ($affectation) {
                 $ue = $affectation->uniteEnseignement;
                 return $ue ? $ue->heures_cm + $ue->heures_td + $ue->heures_tp : 0;
             }),
@@ -254,68 +254,116 @@ class EnseignantController extends Controller
         ];
     }
 
-    // Enhanced grade management
+    // Gestion des notes with grading logic (cloned from vacataire)
     public function notes(Request $request)
     {
-        $teacher = Auth::user();
+        $enseignant = Auth::user();
 
-        // Get all validated UEs assigned to the teacher
-        $unites = Affectation::where('user_id', $teacher->id)
-            ->where('validee', 'valide')
-            ->with(['uniteEnseignement' => function($query) {
-                $query->orderBy('semestre')->orderBy('code');
-            }])
-            ->get()
-            ->pluck('uniteEnseignement')
-            ->filter()
-            ->unique('id');
+        // Get all notes for this enseignant's UEs
+        $baseQuery = Note::whereHas('uniteEnseignement.affectations', function ($q) use ($enseignant) {
+            $q->where('user_id', $enseignant->id)->where('validee', 'valide');
+        })->with(['uniteEnseignement.filiere', 'etudiant']);
 
-        // Initialize variables
-        $selectedUeId = null;
-        $selectedUe = null;
-        $etudiants = collect();
-        $existingNotes = collect();
-        $sessionTypes = ['normale' => 'Session Normale', 'rattrapage' => 'Session de Rattrapage'];
-        $selectedSession = $request->get('session_type', 'normale');
-        $statistics = [];
-
-        if ($request->filled('ue_id') || $unites->isNotEmpty()) {
-            $selectedUeId = $request->ue_id ?? $unites->first()->id;
-
-            // Verify UE assignment
-            if ($unites->contains('id', $selectedUeId)) {
-                $selectedUe = UniteEnseignement::with(['filiere'])->find($selectedUeId);
-
-                // Get real students from database
-                $etudiants = $this->getStudentsForUE($selectedUe);
-
-                // Load existing notes
-                if ($etudiants->isNotEmpty()) {
-                    $existingNotes = Note::where('ue_id', $selectedUeId)
-                        ->whereIn('etudiant_id', $etudiants->pluck('id'))
-                        ->get()
-                        ->groupBy(['etudiant_id', 'session_type']);
-
-                    // Calculate statistics
-                    $statistics = $this->calculateDetailedStatistics($selectedUeId, $selectedSession);
-                }
-            }
+        // Apply filters
+        if ($request->filled('ue_id')) {
+            $baseQuery->where('ue_id', $request->ue_id);
         }
 
-        // Get grade distribution data for charts
-        $gradeDistribution = $this->getGradeDistribution($selectedUeId, $selectedSession);
+        if ($request->filled('session')) {
+            $baseQuery->where('session_type', $request->session);
+        }
 
-        return view('enseignant.notes', compact(
-            'unites',
-            'etudiants',
-            'selectedUeId',
-            'selectedUe',
-            'existingNotes',
-            'sessionTypes',
-            'selectedSession',
-            'statistics',
-            'gradeDistribution'
-        ));
+        $allNotes = $baseQuery->get();
+
+        // Group notes by student and UE to calculate final grades
+        $groupedNotes = $allNotes->groupBy(function ($note) {
+            return $note->ue_id . '_' . $note->etudiant_id;
+        });
+
+        $notes = collect();
+        foreach ($groupedNotes as $key => $studentNotes) {
+            $normaleNote = $studentNotes->where('session_type', 'normale')->first();
+            $rattrapageNote = $studentNotes->where('session_type', 'rattrapage')->first();
+
+            // Calculate final grade and status
+            $noteFinale = null;
+            $status = 'Non Validé';
+            $session = 'Aucune';
+
+            if ($normaleNote) {
+                if ($normaleNote->is_absent) {
+                    $noteNormale = 'Absent';
+                } else {
+                    $noteNormale = $normaleNote->note;
+                    if ($noteNormale >= 10) {
+                        $noteFinale = $noteNormale;
+                        $status = 'Validé';
+                        $session = 'Normale';
+                    }
+                }
+            } else {
+                $noteNormale = '-';
+            }
+
+            if ($rattrapageNote) {
+                if ($rattrapageNote->is_absent) {
+                    $noteRattrapage = 'Absent';
+                } else {
+                    $noteRattrapage = $rattrapageNote->note;
+                    if ($noteRattrapage >= 10) {
+                        $noteFinale = $noteRattrapage;
+                        $status = 'Validé';
+                        $session = 'Rattrapage';
+                    }
+                }
+            } else {
+                $noteRattrapage = '-';
+            }
+
+            // Final grade calculation
+            if ($noteFinale === null) {
+                if ($noteNormale !== '-' && $noteNormale !== 'Absent') {
+                    $noteFinale = $noteNormale . '/20';
+                } elseif ($noteRattrapage !== '-' && $noteRattrapage !== 'Absent') {
+                    $noteFinale = $noteRattrapage . '/20';
+                } else {
+                    $noteFinale = 'Non Validé';
+                }
+            } else {
+                $noteFinale = $noteFinale . '/20';
+            }
+
+            $notes->push((object)[
+                'ue' => $normaleNote ? $normaleNote->uniteEnseignement : $rattrapageNote->uniteEnseignement,
+                'etudiant' => $normaleNote ? $normaleNote->etudiant : $rattrapageNote->etudiant,
+                'note_normale' => $noteNormale,
+                'note_rattrapage' => $noteRattrapage,
+                'note_finale' => $noteFinale,
+                'status' => $status,
+                'session' => $session,
+                'normale_note_obj' => $normaleNote,
+                'rattrapage_note_obj' => $rattrapageNote
+            ]);
+        }
+
+        // Paginate the results
+        $perPage = 15;
+        $currentPage = request()->get('page', 1);
+        $notes = new \Illuminate\Pagination\LengthAwarePaginator(
+            $notes->forPage($currentPage, $perPage),
+            $notes->count(),
+            $perPage,
+            $currentPage,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
+
+        // Get enseignant's assigned UEs
+        $uesAssignees = UniteEnseignement::whereHas('affectations', function ($query) use ($enseignant) {
+            $query->where('user_id', $enseignant->id)
+                ->where('validee', 'valide');
+        })->with('filiere')->get();
+
+        return view('enseignant.notes', compact('notes', 'uesAssignees'));
     }
 
     // Get real students for a UE from database
@@ -327,7 +375,7 @@ class EnseignantController extends Controller
 
         // First, try to get students who already have notes for this UE
         $studentsWithNotes = Note::where('ue_id', $ue->id)
-            ->with(['etudiant' => function($query) {
+            ->with(['etudiant' => function ($query) {
                 $query->with('departement');
             }])
             ->get()
@@ -337,7 +385,7 @@ class EnseignantController extends Controller
 
         if ($studentsWithNotes->isNotEmpty()) {
             // Add filière information to existing students
-            return $studentsWithNotes->map(function($student) use ($ue) {
+            return $studentsWithNotes->map(function ($student) use ($ue) {
                 if ($student->filiere_id && $ue->filiere) {
                     $student->filiere = $ue->filiere->nom;
                 } else {
@@ -368,7 +416,7 @@ class EnseignantController extends Controller
             ->get();
 
         if ($realStudents->isNotEmpty()) {
-            return $realStudents->map(function($student) use ($ue) {
+            return $realStudents->map(function ($student) use ($ue) {
                 // Set filière name
                 if ($student->filiere_id && $ue->filiere && $student->filiere_id == $ue->filiere_id) {
                     $student->filiere = $ue->filiere->nom;
@@ -393,7 +441,7 @@ class EnseignantController extends Controller
             ->get();
 
         if ($allStudents->isNotEmpty()) {
-            return $allStudents->map(function($student) use ($ue) {
+            return $allStudents->map(function ($student) use ($ue) {
                 $student->filiere = $ue->filiere ? $ue->filiere->nom : 'Non assignée';
 
                 if (!$student->matricule) {
@@ -532,108 +580,346 @@ class EnseignantController extends Controller
         return $distribution;
     }
 
-    // Store grades
-    public function storeNotes(Request $request)
+    // Store a single note (cloned from vacataire)
+    public function storeNote(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'ue_id' => 'required|exists:unites_enseignement,id',
+            'matricule' => 'required|string',
+            'nom_etudiant' => 'required|string',
+            'note' => 'nullable|numeric|min:0|max:20',
             'session_type' => 'required|in:normale,rattrapage',
-            'notes' => 'required|array',
-            'notes.*' => 'nullable|numeric|min:0|max:20',
-            'absences' => 'sometimes|array'
+            'is_absent' => 'required|boolean'
         ]);
 
-        // Verify teacher is assigned to this UE
-        $isAssigned = Affectation::where('user_id', Auth::id())
-            ->where('ue_id', $validated['ue_id'])
-            ->where('validee', 'valide')
-            ->exists();
+        $enseignant = Auth::user();
 
-        if (!$isAssigned) {
-            return back()->with('error', 'Action non autorisée : vous n\'êtes pas affecté à cette UE.');
+        // Verify enseignant is assigned to this UE
+        $affectation = Affectation::where('user_id', $enseignant->id)
+            ->where('ue_id', $request->ue_id)
+            ->where('validee', 'valide')
+            ->first();
+
+        if (!$affectation) {
+            return back()->with('error', 'Vous n\'êtes pas autorisé à gérer les notes de cette UE.');
         }
 
         try {
-            $notesCount = 0;
-            $ue = \App\Models\UniteEnseignement::find($validated['ue_id']);
+            // Find student by matricule
+            $etudiant = User::where('matricule', $request->matricule)
+                ->where('role', 'etudiant')
+                ->first();
 
-            \DB::transaction(function() use ($validated, &$notesCount) {
-                foreach ($validated['notes'] as $etudiantId => $noteValue) {
-                    $isAbsent = isset($validated['absences'][$etudiantId]);
+            if (!$etudiant) {
+                return back()->with('error', 'Étudiant non trouvé avec ce CNE/matricule.');
+            }
 
-                    // Skip if both note and absence are empty
-                    if (empty($noteValue) && !$isAbsent) {
-                        continue;
-                    }
+            // Validate note if student is present
+            $note = null;
+            $isAbsent = (bool) $request->is_absent;
 
-                    Note::updateOrCreate(
-                        [
-                            'ue_id' => $validated['ue_id'],
-                            'etudiant_id' => $etudiantId,
-                            'session_type' => $validated['session_type']
-                        ],
-                        [
-                            'note' => $isAbsent ? null : ($noteValue ?: null),
-                            'is_absent' => $isAbsent,
-                            'uploaded_by' => Auth::id()
-                        ]
-                    );
-                    $notesCount++;
-                }
-            });
+            if (!$isAbsent && $request->note !== null) {
+                $note = (float) $request->note;
+            }
 
-            // Log the notes upload activity
+            // Create or update note
+            Note::updateOrCreate(
+                [
+                    'ue_id' => $request->ue_id,
+                    'etudiant_id' => $etudiant->id,
+                    'session_type' => $request->session_type
+                ],
+                [
+                    'note' => $note,
+                    'is_absent' => $isAbsent,
+                    'uploaded_by' => $enseignant->id
+                ]
+            );
+
+            $ue = UniteEnseignement::find($request->ue_id);
+
+            // Log the activity
             \App\Models\Activity::log(
-                'upload',
-                'notes_uploaded_enseignant',
-                "Saisie de notes par enseignant: " . Auth::user()->name . " - {$ue->code} ({$validated['session_type']}) - {$notesCount} notes",
+                'create',
+                'note_added_enseignant',
+                "Note ajoutée par enseignant: {$enseignant->name} - {$ue->code} - {$etudiant->name} ({$request->session_type})",
                 $ue,
                 [
-                    'teacher_name' => Auth::user()->name,
-                    'teacher_email' => Auth::user()->email,
+                    'teacher_name' => $enseignant->name,
+                    'teacher_email' => $enseignant->email,
+                    'etudiant_name' => $etudiant->name,
+                    'etudiant_matricule' => $etudiant->matricule,
                     'ue_code' => $ue->code,
                     'ue_nom' => $ue->nom,
-                    'session_type' => $validated['session_type'],
-                    'notes_count' => $notesCount,
+                    'session_type' => $request->session_type,
+                    'note' => $note,
+                    'is_absent' => $isAbsent,
                     'department' => $ue->departement->nom ?? 'N/A',
                     'filiere' => $ue->filiere->nom ?? 'N/A'
                 ]
             );
 
-            return back()->with('success', 'Les notes ont été enregistrées avec succès.');
+            return redirect()->route('enseignant.notes')->with('success', 'Note enregistrée avec succès!');
         } catch (\Exception $e) {
             return back()->with('error', 'Erreur lors de l\'enregistrement: ' . $e->getMessage());
         }
     }
 
-    // Import grades from Excel
+    // Import notes from Excel/CSV - COMPLETE IMPLEMENTATION (cloned from vacataire)
     public function importNotes(Request $request)
     {
         $request->validate([
-            'file' => 'required|mimes:xlsx,xls',
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:2048',
             'ue_id' => 'required|exists:unites_enseignement,id',
             'session_type' => 'required|in:normale,rattrapage'
         ]);
 
-        // Verify assignment
-        $isAssigned = Affectation::where('user_id', Auth::id())
+        $enseignant = Auth::user();
+
+        // Verify enseignant is assigned to this UE
+        $affectation = Affectation::where('user_id', $enseignant->id)
             ->where('ue_id', $request->ue_id)
             ->where('validee', 'valide')
-            ->exists();
+            ->first();
 
-        if (!$isAssigned) {
-            return back()->with('error', 'Action non autorisée : vous n\'êtes pas affecté à cette UE.');
+        if (!$affectation) {
+            return back()->with('error', 'Vous n\'êtes pas autorisé à gérer les notes de cette UE.');
         }
 
         try {
-            Excel::import(
-                new NotesImport($request->ue_id, Auth::id(), $request->session_type),
-                $request->file('file')
+            $file = $request->file('file');
+            $ue = \App\Models\UniteEnseignement::find($request->ue_id);
+
+            if (!$ue) {
+                return back()->with('error', 'UE sélectionnée introuvable.');
+            }
+
+            // Create import instance
+            $import = new \App\Imports\NotesImport($request->ue_id, $enseignant->id, $request->session_type);
+
+            // Validate Excel file structure and UE match
+            if (!$import->validateExcelFile($file->getPathname())) {
+                $errors = $import->getErrors();
+                return back()->with('error', 'Validation échouée: ' . implode(' | ', $errors));
+            }
+
+            // Perform the import
+            \Maatwebsite\Excel\Facades\Excel::import($import, $file);
+
+            $importedCount = $import->getImportedCount();
+            $errors = $import->getErrors();
+
+            if ($import->hasErrors()) {
+                $errorMessage = "Import terminé avec {$importedCount} notes importées, mais avec des erreurs: " . implode(' | ', $errors);
+                return back()->with('warning', $errorMessage);
+            }
+
+            // Log the import activity
+            \App\Models\Activity::log(
+                'import',
+                'notes_imported_enseignant',
+                "Import de notes par enseignant: {$enseignant->name} - {$ue->code} ({$request->session_type}) - {$importedCount} notes",
+                $ue,
+                [
+                    'teacher_name' => $enseignant->name,
+                    'teacher_email' => $enseignant->email,
+                    'ue_code' => $ue->code,
+                    'ue_nom' => $ue->nom,
+                    'session_type' => $request->session_type,
+                    'imported_count' => $importedCount,
+                    'department' => $ue->departement->nom ?? 'N/A',
+                    'filiere' => $ue->filiere->nom ?? 'N/A'
+                ]
             );
 
-            return back()->with('success', 'Importation des notes terminée avec succès.');
+            return redirect()->route('enseignant.notes')->with('success', "Import réussi! {$importedCount} notes ont été importées.");
         } catch (\Exception $e) {
-            return back()->with('error', 'Erreur lors de l\'importation: ' . $e->getMessage());
+            return back()->with('error', 'Erreur lors de l\'import: ' . $e->getMessage());
+        }
+    }
+
+    // Show download template page (cloned from vacataire)
+    public function showDownloadTemplatePage()
+    {
+        $enseignant = Auth::user();
+
+        // Get enseignant's assigned UEs
+        $uesAssignees = UniteEnseignement::whereHas('affectations', function ($query) use ($enseignant) {
+            $query->where('user_id', $enseignant->id)
+                ->where('validee', 'valide');
+        })->with('filiere')->get();
+
+        return view('enseignant.notes-download-template', compact('uesAssignees'));
+    }
+
+    // Show import notes page (cloned from vacataire)
+    public function showImportPage()
+    {
+        $enseignant = Auth::user();
+
+        // Get enseignant's assigned UEs
+        $uesAssignees = UniteEnseignement::whereHas('affectations', function ($query) use ($enseignant) {
+            $query->where('user_id', $enseignant->id)
+                ->where('validee', 'valide');
+        })->with('filiere')->get();
+
+        return view('enseignant.notes-import', compact('uesAssignees'));
+    }
+
+    // Show add note page (cloned from vacataire)
+    public function showAddNotePage()
+    {
+        $enseignant = Auth::user();
+
+        // Get enseignant's assigned UEs
+        $uesAssignees = UniteEnseignement::whereHas('affectations', function ($query) use ($enseignant) {
+            $query->where('user_id', $enseignant->id)
+                ->where('validee', 'valide');
+        })->with('filiere')->get();
+
+        return view('enseignant.notes-add', compact('uesAssignees'));
+    }
+
+    // Show edit note page (cloned from vacataire)
+    public function showEditNotePage($noteId)
+    {
+        $enseignant = Auth::user();
+
+        // Find note and verify access
+        $note = Note::with(['uniteEnseignement', 'etudiant'])
+            ->whereHas('uniteEnseignement.affectations', function ($query) use ($enseignant) {
+                $query->where('user_id', $enseignant->id)->where('validee', 'valide');
+            })
+            ->findOrFail($noteId);
+
+        return view('enseignant.notes-edit', compact('note'));
+    }
+
+    // Download Excel template for notes (cloned from vacataire)
+    public function downloadNotesTemplate(Request $request)
+    {
+        $request->validate([
+            'ue_id' => 'required|exists:unites_enseignement,id'
+        ]);
+
+        $enseignant = Auth::user();
+
+        // Verify enseignant is assigned to this UE
+        $affectation = Affectation::where('user_id', $enseignant->id)
+            ->where('ue_id', $request->ue_id)
+            ->where('validee', 'valide')
+            ->first();
+
+        if (!$affectation) {
+            return back()->with('error', 'Vous n\'êtes pas autorisé à gérer les notes de cette UE.');
+        }
+
+        try {
+            $ue = UniteEnseignement::with('filiere')->find($request->ue_id);
+
+            if (!$ue) {
+                return back()->with('error', 'UE introuvable.');
+            }
+
+            // Create export instance
+            $export = new \App\Exports\NotesTemplateExport($ue);
+
+            $filename = 'template-notes-' . $ue->code . '-' . date('Y-m-d') . '.xlsx';
+
+            return \Maatwebsite\Excel\Facades\Excel::download($export, $filename);
+        } catch (\Exception $e) {
+            return back()->with('error', 'Erreur lors de la génération du template: ' . $e->getMessage());
+        }
+    }
+
+    // Update an existing note (cloned from vacataire)
+    public function updateNote(Request $request, $noteId)
+    {
+        $request->validate([
+            'note' => 'nullable|numeric|min:0|max:20',
+            'is_absent' => 'required|boolean'
+        ]);
+
+        $enseignant = Auth::user();
+
+        // Find note and verify access
+        $note = Note::with(['uniteEnseignement', 'etudiant'])
+            ->whereHas('uniteEnseignement.affectations', function ($query) use ($enseignant) {
+                $query->where('user_id', $enseignant->id)->where('validee', 'valide');
+            })
+            ->findOrFail($noteId);
+
+        try {
+            $isAbsent = (bool) $request->is_absent;
+            $noteValue = null;
+
+            if (!$isAbsent && $request->note !== null) {
+                $noteValue = (float) $request->note;
+            }
+
+            $note->update([
+                'note' => $noteValue,
+                'is_absent' => $isAbsent,
+                'uploaded_by' => $enseignant->id
+            ]);
+
+            // Log the activity
+            \App\Models\Activity::log(
+                'update',
+                'note_updated_enseignant',
+                "Note modifiée par enseignant: {$enseignant->name} - {$note->uniteEnseignement->code} - {$note->etudiant->name}",
+                $note->uniteEnseignement,
+                [
+                    'teacher_name' => $enseignant->name,
+                    'etudiant_name' => $note->etudiant->name,
+                    'ue_code' => $note->uniteEnseignement->code,
+                    'old_note' => $note->getOriginal('note'),
+                    'new_note' => $noteValue,
+                    'old_absent' => $note->getOriginal('is_absent'),
+                    'new_absent' => $isAbsent
+                ]
+            );
+
+            return redirect()->route('enseignant.notes')->with('success', 'Note modifiée avec succès!');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Erreur lors de la modification: ' . $e->getMessage());
+        }
+    }
+
+    // Delete a note (cloned from vacataire)
+    public function deleteNote($noteId)
+    {
+        $enseignant = Auth::user();
+
+        try {
+            // Find note and verify access
+            $note = Note::with(['uniteEnseignement', 'etudiant'])
+                ->whereHas('uniteEnseignement.affectations', function ($query) use ($enseignant) {
+                    $query->where('user_id', $enseignant->id)->where('validee', 'valide');
+                })
+                ->findOrFail($noteId);
+
+            // Log the activity before deletion
+            \App\Models\Activity::log(
+                'delete',
+                'note_deleted_enseignant',
+                "Note supprimée par enseignant: {$enseignant->name} - {$note->uniteEnseignement->code} - {$note->etudiant->name}",
+                $note->uniteEnseignement,
+                [
+                    'teacher_name' => $enseignant->name,
+                    'etudiant_name' => $note->etudiant->name,
+                    'ue_code' => $note->uniteEnseignement->code,
+                    'deleted_note' => $note->note,
+                    'was_absent' => $note->is_absent
+                ]
+            );
+
+            // Delete the note
+            $note->delete();
+
+            return redirect()->route('enseignant.notes')->with('success', 'Note supprimée avec succès!');
+        } catch (\Exception $e) {
+            return back()->with('error', 'Erreur lors de la suppression: ' . $e->getMessage());
         }
     }
 
@@ -646,14 +932,14 @@ class EnseignantController extends Controller
         // Get schedules grouped by day and time
         $schedules = Schedule::where('user_id', $teacher->id)
             ->with(['uniteEnseignement', 'filiere'])
-            ->orderByRaw("FIELD(jour_semaine, '".implode("','", $daysOrder)."')")
+            ->orderByRaw("FIELD(jour_semaine, '" . implode("','", $daysOrder) . "')")
             ->orderBy('heure_debut')
             ->get()
             ->groupBy(['jour_semaine', function ($item) {
                 // Format time to match the view expectation (HH:MM-HH:MM)
                 $debut = \Carbon\Carbon::parse($item->heure_debut)->format('H:i');
                 $fin = \Carbon\Carbon::parse($item->heure_fin)->format('H:i');
-                return $debut.'-'.$fin;
+                return $debut . '-' . $fin;
             }]);
 
         // Always use standard time slots for consistent display
@@ -690,7 +976,7 @@ class EnseignantController extends Controller
 
             $schedules = Schedule::where('user_id', $teacher->id)
                 ->with(['uniteEnseignement', 'filiere'])
-                ->orderByRaw("FIELD(jour_semaine, '".implode("','", $daysOrder)."')")
+                ->orderByRaw("FIELD(jour_semaine, '" . implode("','", $daysOrder) . "')")
                 ->orderBy('heure_debut')
                 ->get();
 
@@ -704,18 +990,17 @@ class EnseignantController extends Controller
 
             // Configure PDF options for landscape orientation
             $pdf = Pdf::loadView('enseignant.exports.emploi-du-temps', $data)
-                      ->setPaper('a4', 'landscape')
-                      ->setOptions([
-                          'dpi' => 150,
-                          'defaultFont' => 'Arial',
-                          'isRemoteEnabled' => true,
-                          'isHtml5ParserEnabled' => true
-                      ]);
+                ->setPaper('a4', 'landscape')
+                ->setOptions([
+                    'dpi' => 150,
+                    'defaultFont' => 'Arial',
+                    'isRemoteEnabled' => true,
+                    'isHtml5ParserEnabled' => true
+                ]);
 
             $filename = 'emploi-du-temps-' . Str::slug($teacher->name) . '-' . date('Y-m-d') . '.pdf';
 
             return $pdf->download($filename);
-
         } catch (\Exception $e) {
             \Log::error('PDF Export Error: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Erreur lors de la génération du PDF: ' . $e->getMessage());
@@ -729,7 +1014,7 @@ class EnseignantController extends Controller
 
         $courses = Affectation::where('user_id', $teacher->id)
             ->where('validee', true)
-            ->with(['uniteEnseignement' => function($query) {
+            ->with(['uniteEnseignement' => function ($query) {
                 $query->withCount('etudiants');
             }])
             ->get()
@@ -755,7 +1040,7 @@ class EnseignantController extends Controller
             abort(403, 'Action non autorisée');
         }
 
-        $ue = UniteEnseignement::with(['etudiants' => function($query) {
+        $ue = UniteEnseignement::with(['etudiants' => function ($query) {
             $query->orderBy('name');
         }])->findOrFail($ueId);
 
@@ -773,7 +1058,7 @@ class EnseignantController extends Controller
             ->where('departement_id', $teacher->departement_id)
             ->with(['filiere', 'departement'])
             ->get()
-            ->filter(function($ue) use ($specialites) {
+            ->filter(function ($ue) use ($specialites) {
                 // Simple matching logic - could be improved
                 foreach ($specialites as $specialite) {
                     if (stripos($ue->nom, trim($specialite)) !== false) {
@@ -830,7 +1115,7 @@ class EnseignantController extends Controller
                 'user_id' => $departmentHead->id,
                 'title' => 'Nouvelle demande d\'affectation',
                 'message' => "L'enseignant {$teacher->name} a demandé l'affectation de l'UE " .
-                           UniteEnseignement::find($validated['ue_id'])->code,
+                    UniteEnseignement::find($validated['ue_id'])->code,
                 'is_read' => false
             ]);
         }

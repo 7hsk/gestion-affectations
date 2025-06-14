@@ -17,9 +17,9 @@ class UserController extends \App\Http\Controllers\Controller
         // Search filter
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('email', 'LIKE', "%{$search}%");
+                    ->orWhere('email', 'LIKE', "%{$search}%");
             });
         }
 
@@ -66,59 +66,59 @@ class UserController extends \App\Http\Controllers\Controller
         $departements = Departement::all();
         $roles = ['admin', 'chef', 'coordonnateur', 'enseignant', 'vacataire'];
         $specialites = [
-        'Structures et béton armé',
-        'Géotechnique',
-        'Hydraulique urbaine',
-        'Topographie',
-        'Matériaux de construction',
-        'Modélisation et calcul de structures',
-        'Machines électriques',
-        'Électronique de puissance',
-        'Automatismes',
-        'Réseaux électriques',
-        'Commande des systèmes',
-        'Développement logiciel',
-        'Systèmes d’exploitation',
-        'Sécurité informatique',
-        'Intelligence artificielle',
-        'Réseaux & cybersécurité',
-        'Bases de données',
-        'CAO/DAO',
-        'Mécanique des solides',
-        'Fabrication mécanique',
-        'Tribologie',
-        'Vibrations et acoustique',
-        'Thermodynamique',
-        'Transferts thermiques',
-        'Systèmes énergétiques',
-        'Energies renouvelables',
-        'Efficacité énergétique',
-        'Traitement des eaux',
-        'Hydrologie',
-        'Écologie industrielle',
-        'Analyse du cycle de vie',
-        'Génie des procédés environnementaux',
-        'Chimie organique et analytique',
-        'Thermochimie',
-        'Génie des réacteurs',
-        'Opérations unitaires',
-        'Séparation et distillation',
-        'Réseaux informatiques',
-        'Télécommunications',
-        'Systèmes embarqués',
-        'Protocoles réseau',
-        'Analyse / Algèbre',
-        'Statistiques et probabilités',
-        'Mécanique physique',
-        'Thermodynamique fondamentale',
-        'Communication écrite et orale',
-        'Anglais technique',
-        'Français scientifique',
-        'Management de projet',
-        'Entrepreneuriat / Innovation'
-    ];
+            'Structures et béton armé',
+            'Géotechnique',
+            'Hydraulique urbaine',
+            'Topographie',
+            'Matériaux de construction',
+            'Modélisation et calcul de structures',
+            'Machines électriques',
+            'Électronique de puissance',
+            'Automatismes',
+            'Réseaux électriques',
+            'Commande des systèmes',
+            'Développement logiciel',
+            'Systèmes d’exploitation',
+            'Sécurité informatique',
+            'Intelligence artificielle',
+            'Réseaux & cybersécurité',
+            'Bases de données',
+            'CAO/DAO',
+            'Mécanique des solides',
+            'Fabrication mécanique',
+            'Tribologie',
+            'Vibrations et acoustique',
+            'Thermodynamique',
+            'Transferts thermiques',
+            'Systèmes énergétiques',
+            'Energies renouvelables',
+            'Efficacité énergétique',
+            'Traitement des eaux',
+            'Hydrologie',
+            'Écologie industrielle',
+            'Analyse du cycle de vie',
+            'Génie des procédés environnementaux',
+            'Chimie organique et analytique',
+            'Thermochimie',
+            'Génie des réacteurs',
+            'Opérations unitaires',
+            'Séparation et distillation',
+            'Réseaux informatiques',
+            'Télécommunications',
+            'Systèmes embarqués',
+            'Protocoles réseau',
+            'Analyse / Algèbre',
+            'Statistiques et probabilités',
+            'Mécanique physique',
+            'Thermodynamique fondamentale',
+            'Communication écrite et orale',
+            'Anglais technique',
+            'Français scientifique',
+            'Management de projet',
+            'Entrepreneuriat / Innovation'
+        ];
 
-        return view('admin.users.create', compact('departements','roles','specialites'));
+        return view('admin.users.create', compact('departements', 'roles', 'specialites'));
     }
 
     public function store(Request $request)
@@ -222,14 +222,14 @@ class UserController extends \App\Http\Controllers\Controller
             'Entrepreneuriat / Innovation'
         ];
 
-        return view('admin.users.edit', compact('user', 'departements','roles','specialites'));
+        return view('admin.users.edit', compact('user', 'departements', 'roles', 'specialites'));
     }
 
     public function update(Request $request, User $user)
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,'.$user->id,
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
             'password' => 'nullable|string|min:8|confirmed',
             'role' => 'required|in:admin,chef,coordonnateur,enseignant,vacataire,etudiant',
             'departement_id' => 'nullable|exists:departements,id',
@@ -326,9 +326,9 @@ class UserController extends \App\Http\Controllers\Controller
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('email', 'LIKE', "%{$search}%");
+                    ->orWhere('email', 'LIKE', "%{$search}%");
             });
         }
 
@@ -366,7 +366,7 @@ class UserController extends \App\Http\Controllers\Controller
             'Content-Disposition' => "attachment; filename=\"$filename\"",
         ];
 
-        $callback = function() use ($users) {
+        $callback = function () use ($users) {
             $file = fopen('php://output', 'w');
 
             // Add CSV headers
@@ -416,7 +416,7 @@ class UserController extends \App\Http\Controllers\Controller
             'by_department' => User::with('departement')
                 ->get()
                 ->groupBy('departement.nom')
-                ->map(function($users) {
+                ->map(function ($users) {
                     return $users->count();
                 }),
             'recent_registrations' => User::where('created_at', '>=', now()->subDays(30))->count(),

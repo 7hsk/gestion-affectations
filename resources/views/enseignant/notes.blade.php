@@ -1,124 +1,44 @@
 @extends('layouts.enseignant')
 
-@section('title', 'Gestion des notes')
-
-@push('styles')
-<style>
-/* Enhanced gradient styling to match UE view */
-.bg-gradient-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.bg-gradient-info {
-    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
-}
-
-.bg-gradient-success {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-}
-
-.bg-gradient-warning {
-    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-}
-
-.card {
-    border-radius: 12px;
-    transition: transform 0.2s ease-in-out;
-    border: none;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-}
-
-.card:hover {
-    transform: translateY(-2px);
-}
-
-.btn {
-    border-radius: 8px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
-
-.btn:hover {
-    transform: translateY(-1px);
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    border: none;
-}
-
-.btn-primary:hover {
-    background: linear-gradient(135deg, #5a6fd8, #6a4190);
-}
-
-.table th {
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.8rem;
-    letter-spacing: 0.5px;
-    color: #495057;
-    border-bottom: 2px solid #dee2e6;
-}
-
-.table td {
-    vertical-align: middle;
-    border-color: rgba(0,0,0,0.05);
-}
-
-.table tbody tr:hover {
-    background-color: rgba(0,123,255,0.05);
-}
-
-.nav-pills .nav-link {
-    border-radius: 8px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
-
-.nav-pills .nav-link.active {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-}
-
-.stats-card {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
-    border: 1px solid rgba(102, 126, 234, 0.2);
-}
-</style>
-@endpush
+@section('title', 'Gestion des Notes')
 
 @section('content')
 <div class="container-fluid">
-    <!-- Header with Statistics -->
+    <!-- Header Section -->
     <div class="row mb-4">
         <div class="col-12">
-            <div class="card border-0 shadow-sm bg-gradient-primary text-white">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #667eea, #764ba2) !important;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h4 class="mb-1">
+                                <i class="fas fa-graduation-cap me-2"></i>Gestion des Notes
+                            </h4>
+                            <p class="mb-0 opacity-75">Importez et gérez les notes de vos étudiants via Excel</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <span class="badge bg-light text-primary fs-6">
+                                {{ $notes->total() }} note(s) saisie(s)
+                            </span>
+                        </div>
+                    </div>
+                </div>
                 <div class="card-body">
                     <div class="row align-items-center">
-                        <div class="col-md-6">
-                            <h2 class="mb-1">
-                                <i class="fas fa-graduation-cap me-2"></i>
-                                Gestion des Notes
-                            </h2>
-                            <p class="mb-0 opacity-75">Gérez les notes de vos unités d'enseignement</p>
+                        <div class="col-md-8">
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Téléchargez le modèle Excel, remplissez les notes, puis importez le fichier pour une saisie rapide et efficace.
+                            </p>
                         </div>
-                        <div class="col-md-6">
-                            <div class="row text-center">
-                                <div class="col-3">
-                                    <h4 class="text-white mb-0">{{ $unites->count() }}</h4>
-                                    <small class="text-white-50">UEs</small>
-                                </div>
-                                <div class="col-3">
-                                    <h4 class="text-white mb-0">{{ $statistics['total_students'] ?? 0 }}</h4>
-                                    <small class="text-white-50">Étudiants</small>
-                                </div>
-                                <div class="col-3">
-                                    <h4 class="text-white mb-0">{{ $statistics['graded_students'] ?? 0 }}</h4>
-                                    <small class="text-white-50">Notes saisies</small>
-                                </div>
-                                <div class="col-3">
-                                    <h4 class="text-white mb-0">{{ round($statistics['success_rate'] ?? 0, 1) }}%</h4>
-                                    <small class="text-white-50">Taux de réussite</small>
-                                </div>
+                        <div class="col-md-4 text-end">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <a href="{{ route('enseignant.notes.download-template-page') }}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-download me-1"></i>Télécharger Modèle
+                                </a>
+                                <a href="{{ route('enseignant.notes.import-page') }}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-upload me-1"></i>Importer Notes
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -127,46 +47,96 @@
         </div>
     </div>
 
-    <!-- UE and Session Selection -->
+    <!-- Quick Actions & Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="mb-2">
+                        <i class="fas fa-book-open fa-2x text-primary"></i>
+                    </div>
+                    <h5 class="mb-1">{{ $uesAssignees->count() }}</h5>
+                    <small class="text-muted">UEs Assignées</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="mb-2">
+                        <i class="fas fa-users fa-2x text-success"></i>
+                    </div>
+                    <h5 class="mb-1">{{ $notes->where('session_type', 'normale')->count() }}</h5>
+                    <small class="text-muted">Notes Normales</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="mb-2">
+                        <i class="fas fa-redo fa-2x text-warning"></i>
+                    </div>
+                    <h5 class="mb-1">{{ $notes->where('session_type', 'rattrapage')->count() }}</h5>
+                    <small class="text-muted">Notes Rattrapage</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="mb-2">
+                        <i class="fas fa-user-times fa-2x text-danger"></i>
+                    </div>
+                    <h5 class="mb-1">{{ $notes->where('is_absent', true)->count() }}</h5>
+                    <small class="text-muted">Absents</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtres de Recherche
+                    </h6>
+                </div>
                 <div class="card-body">
-                    <form method="GET" action="{{ route('enseignant.notes') }}" class="row g-3">
-                        <div class="col-md-5">
-                            <label for="ue_id" class="form-label">
-                                <i class="fas fa-book me-1"></i>Sélectionner une UE
-                            </label>
-                            <select class="form-select" id="ue_id" name="ue_id" required>
-                                <option value="">Choisir une unité d'enseignement</option>
-                                @foreach($unites as $unite)
-                                    <option value="{{ $unite->id }}" {{ $selectedUeId == $unite->id ? 'selected' : '' }}>
-                                        {{ $unite->code }} - {{ $unite->nom }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label for="session_type" class="form-label">
-                                <i class="fas fa-calendar me-1"></i>Type de session
-                            </label>
-                            <select class="form-select" id="session_type" name="session_type">
-                                @foreach($sessionTypes as $key => $label)
-                                    <option value="{{ $key }}" {{ $selectedSession == $key ? 'selected' : '' }}>
-                                        {{ $label }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="fas fa-search me-1"></i>Charger
-                            </button>
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
-                            <a href="{{ route('enseignant.dashboard') }}" class="btn btn-outline-secondary w-100">
-                                <i class="fas fa-arrow-left me-1"></i>Retour
-                            </a>
+                    <form method="GET" action="{{ route('enseignant.notes') }}">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Unité d'Enseignement</label>
+                                <select name="ue_id" class="form-select">
+                                    <option value="">🔍 Toutes les UEs</option>
+                                    @foreach($uesAssignees as $ue)
+                                        <option value="{{ $ue->id }}" {{ request('ue_id') == $ue->id ? 'selected' : '' }}>
+                                            {{ $ue->code }} - {{ $ue->nom }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Type de Session</label>
+                                <select name="session" class="form-select">
+                                    <option value="">📋 Toutes les sessions</option>
+                                    <option value="normale" {{ request('session') == 'normale' ? 'selected' : '' }}>📝 Session Normale</option>
+                                    <option value="rattrapage" {{ request('session') == 'rattrapage' ? 'selected' : '' }}>🔄 Session Rattrapage</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-search me-1"></i>Rechercher
+                                    </button>
+                                    <a href="{{ route('enseignant.notes') }}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-refresh me-1"></i>Réinitialiser
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -174,526 +144,321 @@
         </div>
     </div>
 
-    @if($selectedUe)
-        <!-- UE Information Card -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm bg-gradient-info text-white">
-                    <div class="card-body">
-                        <div class="row align-items-center">
-                            <div class="col-md-8">
-                                <h4 class="mb-1">
-                                    <i class="fas fa-book-open me-2"></i>
-                                    {{ $selectedUe->code }} - {{ $selectedUe->nom }}
-                                </h4>
-                                <p class="mb-0 opacity-75">
-                                    <span class="badge bg-light text-dark me-2">{{ $sessionTypes[$selectedSession] }}</span>
-                                    Filière: {{ $selectedUe->filiere->nom ?? 'Non assignée' }} |
-                                    Semestre: {{ $selectedUe->semestre }}
-                                </p>
-                            </div>
-                            <div class="col-md-4 text-end">
-                                <!-- Import removed - not in allowed list -->
-                            </div>
+    <!-- Notes Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-table me-2"></i>Liste des Notes
+                        </h6>
+                        <div class="d-flex gap-2">
+                            <a href="{{ route('enseignant.notes.add-page') }}" class="btn btn-success btn-sm">
+                                <i class="fas fa-plus me-1"></i>Ajouter Note
+                            </a>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- Main Content with Three Sections -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <!-- Navigation Tabs -->
-                        <ul class="nav nav-pills nav-fill mb-4" id="notesTab" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="add-notes-tab" data-bs-toggle="tab" data-bs-target="#add-notes" type="button" role="tab">
-                                    <i class="fas fa-plus-circle me-2"></i>Saisir les Notes
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="view-notes-tab" data-bs-toggle="tab" data-bs-target="#view-notes" type="button" role="tab">
-                                    <i class="fas fa-list me-2"></i>Consulter les Notes
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="statistics-tab" data-bs-toggle="tab" data-bs-target="#statistics" type="button" role="tab">
-                                    <i class="fas fa-chart-bar me-2"></i>Statistiques
-                                </button>
-                            </li>
-                        </ul>
-
-                        <!-- Tab Content -->
-                        <div class="tab-content" id="notesTabContent">
-                            <!-- Section 1: Add Notes -->
-                            <div class="tab-pane fade show active" id="add-notes" role="tabpanel">
-                                <div class="row">
-                                    <div class="col-12">
-                                        <h5 class="mb-3">
-                                            <i class="fas fa-edit me-2"></i>
-                                            Saisie des Notes - {{ $sessionTypes[$selectedSession] }}
-                                        </h5>
-
-                                        @if($etudiants->isNotEmpty())
-                                            <form method="POST" action="{{ route('enseignant.notes.store') }}">
-                                                @csrf
-                                                <input type="hidden" name="ue_id" value="{{ $selectedUeId }}">
-                                                <input type="hidden" name="session_type" value="{{ $selectedSession }}">
-
-                                                <div class="table-responsive">
-                                                    <table class="table table-hover">
-                                                        <thead class="table-light">
-                                                            <tr>
-                                                                <th width="15%">Matricule</th>
-                                                                <th width="30%">Nom Complet</th>
-                                                                <th width="15%">Filière</th>
-                                                                <th width="20%">Note (/20)</th>
-                                                                <th width="10%">Absent</th>
-                                                                <th width="10%">Note Actuelle</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            @foreach($etudiants as $etudiant)
-                                                                @php
-                                                                    $existingNote = $existingNotes->get($etudiant->id)?->get($selectedSession)?->first();
-                                                                @endphp
-                                                                <tr>
-                                                                    <td>
-                                                                        <strong>{{ $etudiant->matricule }}</strong>
-                                                                    </td>
-                                                                    <td>{{ $etudiant->name }}</td>
-                                                                    <td>
-                                                                        <span class="badge bg-secondary">{{ $etudiant->filiere }}</span>
-                                                                    </td>
-                                                                    <td>
-                                                                        <input type="number"
-                                                                               class="form-control"
-                                                                               name="notes[{{ $etudiant->id }}]"
-                                                                               min="0"
-                                                                               max="20"
-                                                                               step="0.25"
-                                                                               value="{{ $existingNote->note ?? '' }}"
-                                                                               placeholder="0.00">
-                                                                    </td>
-                                                                    <td>
-                                                                        <div class="form-check">
-                                                                            <input type="checkbox"
-                                                                                   class="form-check-input"
-                                                                                   name="absences[{{ $etudiant->id }}]"
-                                                                                   {{ $existingNote && $existingNote->is_absent ? 'checked' : '' }}>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td>
-                                                                        @if($existingNote)
-                                                                            @if($existingNote->is_absent)
-                                                                                <span class="badge bg-warning">Absent</span>
-                                                                            @else
-                                                                                <span class="badge bg-success">{{ $existingNote->note }}/20</span>
-                                                                            @endif
-                                                                        @else
-                                                                            <span class="badge bg-secondary">Non saisi</span>
-                                                                        @endif
-                                                                    </td>
-                                                                </tr>
-                                                            @endforeach
-                                                        </tbody>
-                                                    </table>
+                <div class="card-body p-0">
+                    @if($notes->count() > 0)
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>UE</th>
+                                        <th>Étudiant</th>
+                                        <th>Note Normale</th>
+                                        <th>Note Rattrapage</th>
+                                        <th>Note Finale</th>
+                                        <th>Session</th>
+                                        <th>Statut</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($notes as $note)
+                                        <tr>
+                                            <td>
+                                                <div>
+                                                    <strong class="text-primary">{{ $note->ue->code ?? 'N/A' }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">{{ Str::limit($note->ue->nom ?? 'N/A', 30) }}</small>
                                                 </div>
-
-                                                <div class="d-flex justify-content-between align-items-center mt-4">
-                                                    <div>
-                                                        <small class="text-muted">
-                                                            <i class="fas fa-info-circle me-1"></i>
-                                                            Les notes sont sur 20. Cochez "Absent" pour marquer un étudiant absent.
-                                                        </small>
-                                                    </div>
-                                                    <button type="submit" class="btn btn-primary btn-lg">
-                                                        <i class="fas fa-save me-2"></i>Enregistrer les Notes
-                                                    </button>
+                                            </td>
+                                            <td>
+                                                <div>
+                                                    <strong>{{ $note->etudiant->name ?? 'N/A' }}</strong>
+                                                    <br>
+                                                    <small class="text-muted">{{ $note->etudiant->matricule ?? 'N/A' }}</small>
                                                 </div>
-                                            </form>
-                                        @else
-                                            <div class="text-center py-5">
-                                                <i class="fas fa-users fa-4x text-muted mb-3"></i>
-                                                <h5 class="text-muted">Aucun étudiant trouvé</h5>
-                                                <p class="text-muted">Aucun étudiant n'est inscrit dans cette UE.</p>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
+                                            </td>
+                                            <td>
+                                                @if($note->note_normale === 'Absent')
+                                                    <span class="badge bg-warning fs-6">Absent</span>
+                                                @elseif($note->note_normale !== '-')
+                                                    <span class="badge bg-{{ $note->note_normale >= 10 ? 'success' : 'danger' }} fs-6">
+                                                        {{ $note->note_normale }}/20
+                                                    </span>
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($note->note_rattrapage === 'Absent')
+                                                    <span class="badge bg-warning fs-6">Absent</span>
+                                                @elseif($note->note_rattrapage !== '-')
+                                                    <span class="badge bg-{{ $note->note_rattrapage >= 10 ? 'success' : 'danger' }} fs-6">
+                                                        {{ $note->note_rattrapage }}/20
+                                                    </span>
+                                                @else
+                                                    <span class="text-muted">-</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($note->status === 'Validé')
+                                                    <span class="badge bg-success fs-6">{{ $note->note_finale }}</span>
+                                                @else
+                                                    <span class="badge bg-danger fs-6">{{ $note->note_finale }}</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-info">{{ $note->session }}</span>
+                                            </td>
+                                            <td>
+                                                @if($note->status === 'Validé')
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-check me-1"></i>Validé
+                                                    </span>
+                                                @else
+                                                    <span class="badge bg-danger">
+                                                        <i class="fas fa-times me-1"></i>Non Validé
+                                                    </span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    @if($note->normale_note_obj)
+                                                        <a href="{{ route('enseignant.notes.edit-page', $note->normale_note_obj->id) }}"
+                                                           class="btn btn-outline-primary"
+                                                           title="Modifier note normale">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    @endif
+                                                    @if($note->rattrapage_note_obj)
+                                                        <a href="{{ route('enseignant.notes.edit-page', $note->rattrapage_note_obj->id) }}"
+                                                           class="btn btn-outline-warning"
+                                                           title="Modifier note rattrapage">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    @endif
+                                                    @if($note->normale_note_obj)
+                                                        <button class="btn btn-outline-danger"
+                                                                onclick="deleteNote({{ $note->normale_note_obj->id }})"
+                                                                title="Supprimer note">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    @endif
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @else
+                        <div class="text-center py-5">
+                            <div class="mb-4">
+                                <i class="fas fa-graduation-cap fa-4x text-muted"></i>
                             </div>
-
-                            <!-- Section 2: View Notes -->
-                            <div class="tab-pane fade" id="view-notes" role="tabpanel">
-                                <div class="row">
-                                    <div class="col-12">
-                                        <h5 class="mb-3">
-                                            <i class="fas fa-eye me-2"></i>
-                                            Consultation des Notes - {{ $sessionTypes[$selectedSession] }}
-                                        </h5>
-
-                                        <!-- Filter Options -->
-                                        <div class="row mb-4">
-                                            <div class="col-md-4">
-                                                <select class="form-select" id="filterStatus">
-                                                    <option value="">Tous les étudiants</option>
-                                                    <option value="graded">Notes saisies</option>
-                                                    <option value="pending">En attente</option>
-                                                    <option value="absent">Absents</option>
-                                                    <option value="passed">Admis (≥10)</option>
-                                                    <option value="failed">Échec (<10)</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <input type="text" class="form-control" id="searchStudent" placeholder="Rechercher un étudiant...">
-                                            </div>
-                                            <div class="col-md-4">
-                                                <button class="btn btn-outline-info" onclick="window.print()">
-                                                    <i class="fas fa-print me-1"></i>Imprimer
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        @if($etudiants->isNotEmpty())
-                                            <div class="table-responsive">
-                                                <table class="table table-hover" id="notesTable">
-                                                    <thead class="table-light">
-                                                        <tr>
-                                                            <th>Matricule</th>
-                                                            <th>Nom Complet</th>
-                                                            <th>Filière</th>
-                                                            <th>Note</th>
-                                                            <th>Statut</th>
-                                                            <th>Date de saisie</th>
-                                                            <th>Actions</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @foreach($etudiants as $etudiant)
-                                                            @php
-                                                                $existingNote = $existingNotes->get($etudiant->id)?->get($selectedSession)?->first();
-                                                            @endphp
-                                                            <tr class="student-row"
-                                                                data-status="{{ $existingNote ? ($existingNote->is_absent ? 'absent' : ($existingNote->note >= 10 ? 'passed' : 'failed')) : 'pending' }}"
-                                                                data-name="{{ strtolower($etudiant->name) }}"
-                                                                data-matricule="{{ $etudiant->matricule }}">
-                                                                <td><strong>{{ $etudiant->matricule }}</strong></td>
-                                                                <td>{{ $etudiant->name }}</td>
-                                                                <td><span class="badge bg-secondary">{{ $etudiant->filiere }}</span></td>
-                                                                <td>
-                                                                    @if($existingNote)
-                                                                        @if($existingNote->is_absent)
-                                                                            <span class="badge bg-warning fs-6">Absent</span>
-                                                                        @else
-                                                                            <span class="badge {{ $existingNote->note >= 10 ? 'bg-success' : 'bg-danger' }} fs-6">
-                                                                                {{ $existingNote->note }}/20
-                                                                            </span>
-                                                                        @endif
-                                                                    @else
-                                                                        <span class="badge bg-secondary fs-6">Non saisi</span>
-                                                                    @endif
-                                                                </td>
-                                                                <td>
-                                                                    @if($existingNote)
-                                                                        @if($existingNote->is_absent)
-                                                                            <span class="badge bg-warning">Absent</span>
-                                                                        @elseif($existingNote->note >= 10)
-                                                                            <span class="badge bg-success">Admis</span>
-                                                                        @else
-                                                                            <span class="badge bg-danger">Échec</span>
-                                                                        @endif
-                                                                    @else
-                                                                        <span class="badge bg-secondary">En attente</span>
-                                                                    @endif
-                                                                </td>
-                                                                <td>
-                                                                    {{ $existingNote ? $existingNote->created_at->format('d/m/Y H:i') : '-' }}
-                                                                </td>
-                                                                <td>
-                                                                    @if($existingNote)
-                                                                        <button class="btn btn-sm btn-outline-primary" onclick="editNote({{ $etudiant->id }}, '{{ $existingNote->note }}', {{ $existingNote->is_absent ? 'true' : 'false' }})">
-                                                                            <i class="fas fa-edit"></i>
-                                                                        </button>
-                                                                    @endif
-                                                                </td>
-                                                            </tr>
-                                                        @endforeach
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        @else
-                                            <div class="text-center py-5">
-                                                <i class="fas fa-users fa-4x text-muted mb-3"></i>
-                                                <h5 class="text-muted">Aucun étudiant trouvé</h5>
-                                                <p class="text-muted">Aucun étudiant n'est inscrit dans cette UE.</p>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Section 3: Statistics -->
-                            <div class="tab-pane fade" id="statistics" role="tabpanel">
-                                <div class="row">
-                                    <div class="col-12">
-                                        <h5 class="mb-4">
-                                            <i class="fas fa-chart-bar me-2"></i>
-                                            Statistiques - {{ $sessionTypes[$selectedSession] }}
-                                        </h5>
-
-                                        @if(!empty($statistics) && $statistics['graded_students'] > 0)
-                                            <!-- Statistics Cards -->
-                                            <div class="row mb-4">
-                                                <div class="col-md-3">
-                                                    <div class="card stats-card">
-                                                        <div class="card-body text-center">
-                                                            <div class="bg-primary bg-opacity-10 rounded-circle p-3 d-inline-flex mb-3">
-                                                                <i class="fas fa-chart-line text-primary fa-2x"></i>
-                                                            </div>
-                                                            <h4 class="text-primary">{{ $statistics['average'] }}/20</h4>
-                                                            <p class="mb-1">Moyenne générale</p>
-                                                            <small class="text-muted">Min: {{ $statistics['min'] }} | Max: {{ $statistics['max'] }}</small>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <div class="card stats-card">
-                                                        <div class="card-body text-center">
-                                                            <div class="bg-success bg-opacity-10 rounded-circle p-3 d-inline-flex mb-3">
-                                                                <i class="fas fa-check-circle text-success fa-2x"></i>
-                                                            </div>
-                                                            <h4 class="text-success">{{ $statistics['success_rate'] }}%</h4>
-                                                            <p class="mb-1">Taux de réussite</p>
-                                                            <small class="text-muted">{{ $statistics['grade_ranges']['passing'] + $statistics['grade_ranges']['average'] + $statistics['grade_ranges']['good'] + $statistics['grade_ranges']['excellent'] }} étudiants admis</small>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <div class="card stats-card">
-                                                        <div class="card-body text-center">
-                                                            <div class="bg-info bg-opacity-10 rounded-circle p-3 d-inline-flex mb-3">
-                                                                <i class="fas fa-users text-info fa-2x"></i>
-                                                            </div>
-                                                            <h4 class="text-info">{{ $statistics['graded_students'] }}/{{ $statistics['total_students'] }}</h4>
-                                                            <p class="mb-1">Notes saisies</p>
-                                                            <small class="text-muted">{{ $statistics['total_students'] - $statistics['graded_students'] }} en attente</small>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <div class="card stats-card">
-                                                        <div class="card-body text-center">
-                                                            <div class="bg-warning bg-opacity-10 rounded-circle p-3 d-inline-flex mb-3">
-                                                                <i class="fas fa-star text-warning fa-2x"></i>
-                                                            </div>
-                                                            <h4 class="text-warning">{{ $statistics['median'] }}</h4>
-                                                            <p class="mb-1">Médiane</p>
-                                                            <small class="text-muted">Note médiane</small>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- Grade Distribution Chart -->
-                                            <div class="row mb-4">
-                                                <div class="col-md-8">
-                                                    <div class="card">
-                                                        <div class="card-header">
-                                                            <h6 class="mb-0">
-                                                                <i class="fas fa-chart-bar me-2"></i>
-                                                                Distribution des Notes
-                                                            </h6>
-                                                        </div>
-                                                        <div class="card-body">
-                                                            <canvas id="gradesChart" height="300"></canvas>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <div class="card">
-                                                        <div class="card-header">
-                                                            <h6 class="mb-0">
-                                                                <i class="fas fa-list me-2"></i>
-                                                                Répartition par Mention
-                                                            </h6>
-                                                        </div>
-                                                        <div class="card-body">
-                                                            <div class="row mb-2">
-                                                                <div class="col-8">
-                                                                    <small class="text-muted">Échec (0-10)</small>
-                                                                </div>
-                                                                <div class="col-4 text-end">
-                                                                    <span class="badge bg-danger">{{ $statistics['grade_ranges']['failing'] }}</span>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row mb-2">
-                                                                <div class="col-8">
-                                                                    <small class="text-muted">Passable (10-12)</small>
-                                                                </div>
-                                                                <div class="col-4 text-end">
-                                                                    <span class="badge bg-warning">{{ $statistics['grade_ranges']['passing'] }}</span>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row mb-2">
-                                                                <div class="col-8">
-                                                                    <small class="text-muted">Assez Bien (12-14)</small>
-                                                                </div>
-                                                                <div class="col-4 text-end">
-                                                                    <span class="badge bg-info">{{ $statistics['grade_ranges']['average'] }}</span>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row mb-2">
-                                                                <div class="col-8">
-                                                                    <small class="text-muted">Bien (14-16)</small>
-                                                                </div>
-                                                                <div class="col-4 text-end">
-                                                                    <span class="badge bg-success">{{ $statistics['grade_ranges']['good'] }}</span>
-                                                                </div>
-                                                            </div>
-                                                            <div class="row mb-2">
-                                                                <div class="col-8">
-                                                                    <small class="text-muted">Très Bien (16-20)</small>
-                                                                </div>
-                                                                <div class="col-4 text-end">
-                                                                    <span class="badge bg-primary">{{ $statistics['grade_ranges']['excellent'] }}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        @else
-                                            <div class="text-center py-5">
-                                                <i class="fas fa-chart-bar fa-4x text-muted mb-3"></i>
-                                                <h5 class="text-muted">Aucune statistique disponible</h5>
-                                                <p class="text-muted">Saisissez des notes pour voir les statistiques.</p>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
+                            <h5 class="text-muted mb-3">Aucune note trouvée</h5>
+                            <p class="text-muted mb-4">
+                                @if(request()->hasAny(['ue_id', 'session']))
+                                    Aucune note ne correspond à vos critères de recherche.
+                                @else
+                                    Vous n'avez pas encore saisi de notes pour vos étudiants.
+                                @endif
+                            </p>
+                            <div class="d-flex gap-2 justify-content-center">
+                                @if(request()->hasAny(['ue_id', 'session']))
+                                    <a href="{{ route('enseignant.notes') }}" class="btn btn-outline-primary">
+                                        <i class="fas fa-times me-1"></i>Réinitialiser les filtres
+                                    </a>
+                                @endif
+                                <a href="{{ route('enseignant.notes.add-page') }}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i>Ajouter une note
+                                </a>
                             </div>
                         </div>
-                    </div>
+                    @endif
                 </div>
             </div>
         </div>
-    @else
-        <!-- No UE Selected -->
-        <div class="row">
+    </div>
+
+    <!-- Pagination -->
+    @if($notes->hasPages())
+        <div class="row mt-4">
             <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body text-center py-5">
-                        <i class="fas fa-mouse-pointer fa-4x text-muted mb-4"></i>
-                        <h4 class="text-muted mb-3">Sélectionnez une UE</h4>
-                        <p class="text-muted mb-4">Choisissez une unité d'enseignement pour commencer à gérer les notes.</p>
-                    </div>
+                <div class="d-flex justify-content-center">
+                    {{ $notes->links() }}
                 </div>
             </div>
         </div>
     @endif
 </div>
 
-<!-- Import Modal removed - not in allowed list -->
-
-@push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-// Chart for grade distribution
-@if(isset($gradeDistribution) && !empty($gradeDistribution))
-    const ctx = document.getElementById('gradesChart');
-    if (ctx) {
-        const gradesChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['0-5', '5-10', '10-15', '15-20'],
-                datasets: [{
-                    label: 'Nombre d\'étudiants',
-                    data: [
-                        {{ $gradeDistribution['0-5'] ?? 0 }},
-                        {{ $gradeDistribution['5-10'] ?? 0 }},
-                        {{ $gradeDistribution['10-15'] ?? 0 }},
-                        {{ $gradeDistribution['15-20'] ?? 0 }}
-                    ],
-                    backgroundColor: [
-                        'rgba(220, 53, 69, 0.7)',   // Red for 0-5
-                        'rgba(255, 193, 7, 0.7)',   // Yellow for 5-10
-                        'rgba(25, 135, 84, 0.7)',   // Green for 10-15
-                        'rgba(13, 110, 253, 0.7)'   // Blue for 15-20
-                    ],
-                    borderColor: [
-                        'rgba(220, 53, 69, 1)',
-                        'rgba(255, 193, 7, 1)',
-                        'rgba(25, 135, 84, 1)',
-                        'rgba(13, 110, 253, 1)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: 'Distribution des Notes'
-                    },
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
-                        }
-                    }
-                }
-            }
-        });
-    }
-@endif
-
-// Filter functionality
-document.getElementById('filterStatus')?.addEventListener('change', function() {
-    const filterValue = this.value;
-    const rows = document.querySelectorAll('.student-row');
-
-    rows.forEach(row => {
-        if (filterValue === '' || row.dataset.status === filterValue ||
-            (filterValue === 'graded' && row.dataset.status !== 'pending')) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-});
-
-// Search functionality
-document.getElementById('searchStudent')?.addEventListener('input', function() {
-    const searchValue = this.value.toLowerCase();
-    const rows = document.querySelectorAll('.student-row');
-
-    rows.forEach(row => {
-        const name = row.dataset.name;
-        const matricule = row.dataset.matricule.toLowerCase();
-
-        if (name.includes(searchValue) || matricule.includes(searchValue)) {
-            row.style.display = '';
-        } else {
-            row.style.display = 'none';
-        }
-    });
-});
-
-// Edit note function
-function editNote(studentId, currentNote, isAbsent) {
-    // This would open a modal or inline edit
-    console.log('Edit note for student:', studentId, currentNote, isAbsent);
+@push('styles')
+<style>
+/* Fix modal z-index issues */
+.modal {
+    z-index: 9999 !important;
 }
 
-// Export function removed - not in allowed list
+.modal-backdrop {
+    z-index: 9998 !important;
+}
+
+.modal-dialog {
+    z-index: 10000 !important;
+    position: relative;
+}
+
+.modal-content {
+    z-index: 10001 !important;
+    position: relative;
+}
+
+/* Ensure form elements are clickable */
+.modal-body input,
+.modal-body select,
+.modal-body textarea,
+.modal-body button {
+    z-index: 10002 !important;
+    position: relative;
+}
+
+/* Fix any overlay issues */
+.modal.show {
+    display: block !important;
+    z-index: 9999 !important;
+}
+
+.modal.show .modal-dialog {
+    transform: none !important;
+    z-index: 10000 !important;
+}
+
+/* Ensure dropdown menus work in modals */
+.modal .dropdown-menu {
+    z-index: 10003 !important;
+}
+
+/* Fix select2 or other plugin dropdowns if used */
+.select2-container {
+    z-index: 10004 !important;
+}
+
+.select2-dropdown {
+    z-index: 10005 !important;
+}
+</style>
+@endpush
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📊 ENSEIGNANT NOTES PAGE INITIALIZED');
+    console.log('💜 Total notes:', {{ $notes->total() }});
+
+    // Fix modal z-index issues
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        modal.style.zIndex = '9999';
+
+        // Ensure modal shows properly
+        modal.addEventListener('show.bs.modal', function() {
+            this.style.zIndex = '9999';
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.style.zIndex = '9998';
+            }
+        });
+
+        // Fix modal dialog positioning
+        modal.addEventListener('shown.bs.modal', function() {
+            const dialog = this.querySelector('.modal-dialog');
+            if (dialog) {
+                dialog.style.zIndex = '10000';
+                dialog.style.position = 'relative';
+            }
+
+            const content = this.querySelector('.modal-content');
+            if (content) {
+                content.style.zIndex = '10001';
+                content.style.position = 'relative';
+            }
+        });
+    });
+
+    // Ensure form elements are accessible
+    const formElements = document.querySelectorAll('.modal input, .modal select, .modal textarea, .modal button');
+    formElements.forEach(element => {
+        element.style.zIndex = '10002';
+        element.style.position = 'relative';
+    });
+});
+
+function deleteNote(noteId) {
+    console.log('🗑️ DELETE NOTE CLICKED:', noteId);
+
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette note ? Cette action est irréversible.')) {
+        // Show loading notification
+        showNotification('Suppression en cours...', 'info');
+
+        // Create form to submit delete request
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/enseignant/notes/${noteId}/delete`;
+
+        // Add CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        form.appendChild(csrfInput);
+
+        // Add method override for DELETE
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+        form.appendChild(methodInput);
+
+        // Submit form
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function showNotification(message, type = 'info') {
+    const notification = `
+        <div class="alert alert-${type} alert-dismissible fade show position-fixed"
+             style="top: 20px; right: 20px; z-index: 99999; min-width: 300px;">
+            <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'info'}-circle me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', notification);
+
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        const alert = document.querySelector('.alert:last-of-type');
+        if (alert) alert.remove();
+    }, 5000);
+}
 </script>
 @endpush
 @endsection

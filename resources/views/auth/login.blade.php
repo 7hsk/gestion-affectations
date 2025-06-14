@@ -887,6 +887,20 @@
             0% { transform: translate(0, 0) scale(1); opacity: 1; }
             100% { transform: translate(200px, 0px) scale(0); opacity: 0; }
         }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-10px); }
+        }
+        
+        .alert {
+            transition: all 0.3s ease;
+        }
     </style>
 </head>
 <body>
@@ -950,6 +964,10 @@
                 <h1>ENSA Al Hoceima</h1>
                 <h2>École Nationale des Sciences Appliquées</h2>
                 <p>Système de Gestion des Affectations d'Enseignement</p>
+            </div>
+
+            <!-- Notification Container -->
+            <div id="notification" class="alert" style="display: none; margin-bottom: 20px; padding: 15px; border-radius: 10px; width: 100%;">
             </div>
 
             <div class="form-content">
@@ -1022,17 +1040,63 @@
 
         // Handle form submission
         const loginForm = document.getElementById('loginForm');
-        if (loginForm) {
-            loginForm.addEventListener('submit', function(e) {
-                const btn = this.querySelector('.btn-login');
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Connexion...';
+        const notification = document.getElementById('notification');
 
-                // Add loading animation
-                btn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-                btn.style.transform = 'translateY(-1px)';
-            });
+        function showNotification(message, type = 'error') {
+            notification.textContent = message;
+            notification.className = `alert alert-${type === 'error' ? 'danger' : 'success'}`;
+            notification.style.display = 'block';
+            
+            // Add animation
+            notification.style.animation = 'fadeIn 0.5s ease-in-out';
+            
+            // Auto hide after 5 seconds
+            setTimeout(() => {
+                notification.style.animation = 'fadeOut 0.5s ease-in-out';
+                setTimeout(() => {
+                    notification.style.display = 'none';
+                }, 500);
+            }, 5000);
         }
+
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            // Show loading state
+            const submitButton = this.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Connexion en cours...';
+            submitButton.disabled = true;
+
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Connexion réussie! Redirection...', 'success');
+                    // Redirect after a short delay
+                    setTimeout(() => {
+                        window.location.href = data.redirect;
+                    }, 1000);
+                } else {
+                    showNotification(data.message || 'Identifiants incorrects');
+                    submitButton.innerHTML = originalButtonText;
+                    submitButton.disabled = false;
+                }
+            })
+            .catch(error => {
+                showNotification('Une erreur est survenue. Veuillez réessayer.');
+                submitButton.innerHTML = originalButtonText;
+                submitButton.disabled = false;
+            });
+        });
     });
 
     function initializeAnimations() {

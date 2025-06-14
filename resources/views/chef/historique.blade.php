@@ -380,9 +380,9 @@
                                 </option>
                             @endforeach
                         </select>
-                        <button class="btn btn-primary" onclick="exportHistorique()">
-                            <i class="fas fa-download me-2"></i>Exporter Historique
-                        </button>
+                    <button class="btn btn-primary" onclick="exportHistorique()">
+                        <i class="fas fa-download me-2"></i>Exporter Historique
+                    </button>
                     </div>
                 </div>
             </div>

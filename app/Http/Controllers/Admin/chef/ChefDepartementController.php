@@ -1180,6 +1180,7 @@ class ChefDepartementController extends Controller
     {
         try {
             $chef = Auth::user();
+            $currentYear = date('Y') . '-' . (date('Y') + 1);
 
             // Check if chef has a department assigned
             if (!$chef->departement_id) {
@@ -1196,9 +1197,12 @@ class ChefDepartementController extends Controller
             $enseignantSpecialities = $enseignant->specialite ? explode(',', $enseignant->specialite) : [];
             $enseignantSpecialities = array_map('trim', $enseignantSpecialities);
 
-            // Get available UEs (not currently assigned or vacant)
+            // Get available UEs (not currently assigned for current year)
             $query = UniteEnseignement::where('departement_id', $chef->departement_id)
-                ->where('est_vacant', true)
+                ->whereDoesntHave('affectations', function ($q) use ($currentYear) {
+                    $q->where('annee_universitaire', $currentYear)
+                        ->where('validee', 'valide');
+                })
                 ->with(['filiere']);
 
             // Filter by specialities if enseignant has any

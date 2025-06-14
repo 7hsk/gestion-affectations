@@ -509,7 +509,12 @@ class CoordonnateurController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('coordonnateur.vacataires', compact('uesDisponibles', 'vacataires', 'filieres'));
+        // Get departements for the modal form
+        $departements = \App\Models\Departement::whereIn('id', $departementIds)
+            ->orderBy('nom')
+            ->get();
+
+        return view('coordonnateur.vacataires', compact('uesDisponibles', 'vacataires', 'filieres', 'departements'));
     }
 
     // Affecter UE to vacataire
@@ -634,6 +639,358 @@ class CoordonnateurController extends Controller
         );
 
         return back()->with('success', 'Compte vacataire créé avec succès.');
+    }
+
+    // Show create vacataire form
+    public function showCreateVacataire()
+    {
+        $coordonnateur = Auth::user();
+
+        // Get coordonnateur's managed filieres with their departments
+        $filieres = DB::table('coordonnateurs_filieres')
+            ->join('filieres', 'coordonnateurs_filieres.filiere_id', '=', 'filieres.id')
+            ->where('coordonnateurs_filieres.user_id', $coordonnateur->id)
+            ->select('filieres.*')
+            ->get();
+
+        $departementIds = $filieres->pluck('departement_id')->unique();
+
+        // Get departements for the form
+        $departements = \App\Models\Departement::whereIn('id', $departementIds)
+            ->orderBy('nom')
+            ->get();
+
+        // Get specialities list (same as admin)
+        $specialites = [
+            'Structures et béton armé',
+            'Géotechnique',
+            'Hydraulique urbaine',
+            'Topographie',
+            'Matériaux de construction',
+            'Modélisation et calcul de structures',
+            'Machines électriques',
+            'Électronique de puissance',
+            'Automatismes',
+            'Réseaux électriques',
+            'Commande des systèmes',
+            'Développement logiciel',
+            'Systèmes d\'exploitation',
+            'Sécurité informatique',
+            'Intelligence artificielle',
+            'Réseaux & cybersécurité',
+            'Bases de données',
+            'CAO/DAO',
+            'Mécanique des solides',
+            'Fabrication mécanique',
+            'Tribologie',
+            'Vibrations et acoustique',
+            'Thermodynamique',
+            'Transferts thermiques',
+            'Systèmes énergétiques',
+            'Energies renouvelables',
+            'Efficacité énergétique',
+            'Traitement des eaux',
+            'Hydrologie',
+            'Écologie industrielle',
+            'Analyse du cycle de vie',
+            'Génie des procédés environnementaux',
+            'Chimie organique et analytique',
+            'Thermochimie',
+            'Génie des réacteurs',
+            'Opérations unitaires',
+            'Séparation et distillation',
+            'Réseaux informatiques',
+            'Télécommunications',
+            'Systèmes embarqués',
+            'Protocoles réseau',
+            'Analyse / Algèbre',
+            'Statistiques et probabilités',
+            'Mécanique physique',
+            'Thermodynamique fondamentale',
+            'Communication écrite et orale',
+            'Anglais technique',
+            'Français scientifique',
+            'Management de projet',
+            'Entrepreneuriat / Innovation'
+        ];
+
+        return view('coordonnateur.create-vacataire', compact('departements', 'specialites'));
+    }
+
+    // Store vacataire account (form submission)
+    public function storeVacataire(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8|confirmed',
+            'departement_id' => 'required|exists:departements,id',
+            'specialite' => 'nullable|array',
+            'specialite.*' => 'string',
+        ]);
+
+        $coordonnateur = Auth::user();
+
+        // Convert specialite array to string for storage (same as admin)
+        $specialiteString = null;
+        if ($request->has('specialite') && is_array($request->specialite)) {
+            $specialiteString = implode(',', $request->specialite);
+        }
+
+        $vacataire = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => bcrypt($request->password),
+            'role' => 'vacataire',
+            'departement_id' => $request->departement_id,
+            'specialite' => $specialiteString,
+        ]);
+
+        // Log the vacataire creation activity
+        \App\Models\Activity::log(
+            'create',
+            'vacataire_created_coordonnateur_form',
+            "Compte vacataire créé par coordonnateur via formulaire: {$vacataire->name} ({$vacataire->email})",
+            $vacataire,
+            [
+                'vacataire_name' => $vacataire->name,
+                'vacataire_email' => $vacataire->email,
+                'departement_id' => $vacataire->departement_id,
+                'specialite' => $vacataire->specialite,
+                'created_by' => $coordonnateur->name,
+                'created_by_id' => $coordonnateur->id,
+                'coordonnateur_role' => 'coordonnateur',
+                'creation_method' => 'form_page'
+            ]
+        );
+
+        return redirect()->route('coordonnateur.vacataires')
+            ->with('success', 'Compte vacataire créé avec succès! Le vacataire peut maintenant se connecter avec ses identifiants.');
+    }
+
+    // Save vacataire affectations via drag and drop
+    public function saveVacataireAffectations(Request $request)
+    {
+        try {
+            $coordonnateur = Auth::user();
+
+            // Validate request
+            $request->validate([
+                'vacataire_id' => 'required|exists:users,id',
+                'ues' => 'required|array|min:1',
+                'ues.*.ue_id' => 'required|exists:unites_enseignement,id',
+                'ues.*.type_seance' => 'required|in:CM,TD,TP'
+            ]);
+
+            $vacataireId = $request->vacataire_id;
+            $ues = $request->ues;
+            $currentYear = date('Y') . '-' . (date('Y') + 1);
+
+            // Verify vacataire exists and belongs to coordonnateur's managed departments
+            $vacataire = User::where('id', $vacataireId)
+                ->where('role', 'vacataire')
+                ->first();
+
+            if (!$vacataire) {
+                return response()->json(['error' => 'Vacataire non trouvé'], 400);
+            }
+
+            // Get coordonnateur's managed filieres and their departments
+            $filieres = DB::table('coordonnateurs_filieres')
+                ->join('filieres', 'coordonnateurs_filieres.filiere_id', '=', 'filieres.id')
+                ->where('coordonnateurs_filieres.user_id', $coordonnateur->id)
+                ->select('filieres.*')
+                ->get();
+
+            $departementIds = $filieres->pluck('departement_id')->unique();
+
+            // Verify vacataire belongs to managed departments
+            if (!$departementIds->contains($vacataire->departement_id)) {
+                return response()->json(['error' => 'Ce vacataire n\'appartient pas à vos départements gérés'], 403);
+            }
+
+            $createdCount = 0;
+            $errors = [];
+
+            DB::transaction(function () use ($ues, $vacataireId, $currentYear, $coordonnateur, $vacataire, &$createdCount, &$errors) {
+                foreach ($ues as $ueData) {
+                    try {
+                        // Get UE and verify it belongs to coordonnateur's managed filieres
+                        $ue = UniteEnseignement::find($ueData['ue_id']);
+
+                        if (!$ue) {
+                            $errors[] = "UE {$ueData['ue_id']} non trouvée";
+                            continue;
+                        }
+
+                        // Verify UE belongs to coordonnateur's managed filieres
+                        $coordonnateur = Auth::user();
+                        $managedFiliereIds = DB::table('coordonnateurs_filieres')
+                            ->where('user_id', $coordonnateur->id)
+                            ->pluck('filiere_id');
+
+                        if (!$managedFiliereIds->contains($ue->filiere_id)) {
+                            $errors[] = "UE {$ue->code} n'appartient pas à vos filières gérées";
+                            continue;
+                        }
+
+                        // Check if affectation already exists for this year
+                        $existingAffectation = Affectation::where('ue_id', $ue->id)
+                            ->where('user_id', $vacataireId)
+                            ->where('type_seance', $ueData['type_seance'])
+                            ->where('annee_universitaire', $currentYear)
+                            ->first();
+
+                        if ($existingAffectation) {
+                            $errors[] = "Affectation déjà existante pour UE {$ue->code} ({$ueData['type_seance']})";
+                            continue;
+                        }
+
+                        // Create affectation
+                        $affectation = Affectation::create([
+                            'ue_id' => $ue->id,
+                            'user_id' => $vacataireId,
+                            'type_seance' => $ueData['type_seance'],
+                            'annee_universitaire' => $currentYear,
+                            'validee' => 'valide', // Coordonnateur can directly validate
+                            'validee_par' => $coordonnateur->id,
+                            'date_validation' => now(),
+                            'commentaire' => 'Affectation directe par coordonnateur via glisser-déposer'
+                        ]);
+
+                        // Log the drag-and-drop assignment activity
+                        \App\Models\Activity::log(
+                            'create',
+                            'drag_drop_affectation_coordonnateur_vacataire',
+                            "Affectation vacataire par glisser-déposer: {$vacataire->name} - {$ue->code} ({$ueData['type_seance']})",
+                            $affectation,
+                            [
+                                'vacataire_name' => $vacataire->name,
+                                'vacataire_email' => $vacataire->email,
+                                'ue_code' => $ue->code,
+                                'ue_nom' => $ue->nom,
+                                'type_seance' => $ueData['type_seance'],
+                                'annee_universitaire' => $currentYear,
+                                'assigned_by' => $coordonnateur->name,
+                                'coordonnateur_role' => 'coordonnateur',
+                                'method' => 'drag_and_drop_vacataire'
+                            ]
+                        );
+
+                        // Mark UE as not vacant
+                        $ue->update(['est_vacant' => false]);
+
+                        $createdCount++;
+                    } catch (\Exception $e) {
+                        $errors[] = "Erreur pour UE {$ueData['ue_id']}: " . $e->getMessage();
+                    }
+                }
+            });
+
+            // Prepare response - FIXED LOGIC
+            if ($createdCount > 0 && empty($errors)) {
+                // Complete success
+                return response()->json([
+                    'success' => true,
+                    'created_count' => $createdCount,
+                    'total_requested' => count($ues),
+                    'message' => "{$createdCount} affectation(s) créée(s) avec succès!"
+                ]);
+            } elseif ($createdCount > 0 && !empty($errors)) {
+                // Partial success
+                return response()->json([
+                    'success' => true,
+                    'created_count' => $createdCount,
+                    'total_requested' => count($ues),
+                    'errors' => $errors,
+                    'message' => "{$createdCount} affectation(s) créée(s), mais certaines ont échoué"
+                ]);
+            } else {
+                // Complete failure
+                return response()->json([
+                    'success' => false,
+                    'created_count' => 0,
+                    'total_requested' => count($ues),
+                    'errors' => $errors,
+                    'message' => "Aucune affectation n'a pu être créée"
+                ], 400);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Coordonnateur vacataire affectation error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la sauvegarde: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Create vacataire account via AJAX (JSON response) - DEPRECATED, keeping for compatibility
+    public function createVacataire(Request $request)
+    {
+        try {
+            $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users',
+                'password' => 'required|string|min:8|confirmed',
+                'departement_id' => 'required|exists:departements,id',
+                'specialite' => 'nullable|string|max:255',
+            ]);
+
+            $coordonnateur = Auth::user();
+
+            $vacataire = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => bcrypt($request->password),
+                'role' => 'vacataire',
+                'departement_id' => $request->departement_id,
+                'specialite' => $request->specialite,
+            ]);
+
+            // Log the vacataire creation activity
+            \App\Models\Activity::log(
+                'create',
+                'vacataire_created_coordonnateur_ajax',
+                "Compte vacataire créé par coordonnateur via interface: {$vacataire->name} ({$vacataire->email})",
+                $vacataire,
+                [
+                    'vacataire_name' => $vacataire->name,
+                    'vacataire_email' => $vacataire->email,
+                    'departement_id' => $vacataire->departement_id,
+                    'specialite' => $vacataire->specialite,
+                    'created_by' => $coordonnateur->name,
+                    'created_by_id' => $coordonnateur->id,
+                    'coordonnateur_role' => 'coordonnateur',
+                    'creation_method' => 'ajax_modal'
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Compte vacataire créé avec succès!',
+                'vacataire' => [
+                    'id' => $vacataire->id,
+                    'name' => $vacataire->name,
+                    'email' => $vacataire->email,
+                    'specialite' => $vacataire->specialite,
+                    'departement' => $vacataire->departement->nom ?? null
+                ]
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur de validation',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            \Log::error('Error creating vacataire: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Erreur lors de la création du compte: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
 
@@ -1733,46 +2090,211 @@ class CoordonnateurController extends Controller
 
     public function getCompatibleUEs($vacataireId)
     {
-        $coordonnateur = Auth::user();
+        try {
+            $coordonnateur = Auth::user();
+            $currentYear = date('Y') . '-' . (date('Y') + 1);
 
-        // Get coordonnateur's managed filieres
-        $filiereIds = DB::table('coordonnateurs_filieres')
-            ->where('user_id', $coordonnateur->id)
-            ->pluck('filiere_id');
+            // Get coordonnateur's managed filieres
+            $filiereIds = DB::table('coordonnateurs_filieres')
+                ->where('user_id', $coordonnateur->id)
+                ->pluck('filiere_id');
 
-        // Get vacataire to check specialities
-        $vacataire = User::findOrFail($vacataireId);
-        $vacataireSpecialites = $vacataire->specialite ? explode(',', $vacataire->specialite) : [];
+            // Get vacataire with eager loaded affectations
+            $vacataire = User::with(['affectations' => function($query) use ($currentYear) {
+                $query->where('annee_universitaire', $currentYear)
+                      ->where('validee', 'valide');
+            }])->findOrFail($vacataireId);
 
-        // Get UEs available for vacataires (those marked by chef) and compatible with vacataire specialities
-        $uesDisponibles = UniteEnseignement::whereIn('filiere_id', $filiereIds)
-            ->whereNotNull('vacataire_types')
-            ->where('vacataire_types', '!=', '[]')
-            ->with(['filiere', 'departement'])
-            ->get()
-            ->filter(function ($ue) use ($vacataireSpecialites) {
-                // If UE has no speciality requirement, it's compatible
-                if (!$ue->specialite) {
-                    return true;
-                }
+            // Get vacataire specialities (properly trimmed)
+            $vacataireSpecialites = [];
+            if ($vacataire->specialite) {
+                $vacataireSpecialites = array_map('trim', explode(',', $vacataire->specialite));
+                $vacataireSpecialites = array_filter($vacataireSpecialites); // Remove empty values
+            }
 
-                // Check if any vacataire speciality matches UE speciality
-                $ueSpecialites = explode(',', $ue->specialite);
-                foreach ($vacataireSpecialites as $vacSpec) {
-                    foreach ($ueSpecialites as $ueSpec) {
-                        if (
-                            stripos(trim($ueSpec), trim($vacSpec)) !== false ||
-                            stripos(trim($vacSpec), trim($ueSpec)) !== false
-                        ) {
-                            return true;
+            \Log::info('🔍 Vacataire details:', [
+                'id' => $vacataire->id,
+                'name' => $vacataire->name,
+                'specialites' => $vacataireSpecialites,
+                'existing_affectations' => $vacataire->affectations->count()
+            ]);
+
+            // Get UEs that are:
+            // 1. In coordonnateur's managed filieres
+            // 2. Marked as vacant (est_vacant = true)
+            // 3. Have vacataire_types defined
+            // 4. NOT AFFECTED to anyone (no affectations at all)
+            $ues = UniteEnseignement::whereIn('filiere_id', $filiereIds)
+                ->where('est_vacant', true)
+                ->whereNotNull('vacataire_types')
+                ->where('vacataire_types', '!=', '[]')
+                ->where('vacataire_types', '!=', 'null')
+                ->whereDoesntHave('affectations', function($query) use ($currentYear) {
+                    $query->where('annee_universitaire', $currentYear)
+                          ->where('validee', 'valide');
+                })
+                ->with(['filiere', 'departement'])
+                ->get();
+
+            \Log::info('🔍 Found UEs with strict filtering (vacant + no affectations + vacataire_types):', [
+                'total_count' => $ues->count(),
+                'filiere_ids' => $filiereIds->toArray(),
+                'conditions' => [
+                    'est_vacant' => true,
+                    'no_affectations' => true,
+                    'has_vacataire_types' => true
+                ]
+            ]);
+
+            // Note: We now check for assignments to ANY user (not just this vacataire)
+            // This is handled in the individual UE processing loop
+
+            // Process each UE to:
+            // 1. Check speciality compatibility
+            // 2. Extract available vacataire types
+            // 3. Remove already affected types
+            $compatibleUEs = [];
+
+            foreach ($ues as $ue) {
+                try {
+                    // STEP 1: Check speciality compatibility (STRICT MATCHING)
+                    $isSpecialityCompatible = false;
+
+                    // If UE has no speciality, it's compatible with everyone
+                    if (empty($ue->specialite)) {
+                        $isSpecialityCompatible = true;
+                    }
+                    // If vacataire has no specialities, they can't teach specialized UEs
+                    else if (empty($vacataireSpecialites)) {
+                        $isSpecialityCompatible = false;
+                    }
+                    // STRICT CHECK: ALL UE specialities must be in vacataire specialities
+                    else {
+                        $ueSpecialites = array_map('trim', explode(',', $ue->specialite));
+                        $ueSpecialites = array_filter($ueSpecialites); // Remove empty values
+
+                        $isSpecialityCompatible = true; // Assume compatible until proven otherwise
+
+                        // Check that EVERY UE speciality is covered by vacataire
+                        foreach ($ueSpecialites as $ueSpec) {
+                            $ueSpecCovered = false;
+                            foreach ($vacataireSpecialites as $vacSpec) {
+                                if (stripos($ueSpec, $vacSpec) !== false ||
+                                    stripos($vacSpec, $ueSpec) !== false) {
+                                    $ueSpecCovered = true;
+                                    break;
+                                }
+                            }
+                            // If any UE speciality is not covered, UE is incompatible
+                            if (!$ueSpecCovered) {
+                                $isSpecialityCompatible = false;
+                                break;
+                            }
                         }
                     }
-                }
-                return false;
-            })
-            ->values();
 
-        return response()->json($uesDisponibles);
+                    // Skip UE if specialities don't match
+                    if (!$isSpecialityCompatible) {
+                        continue;
+                    }
+
+                    // STEP 2: Extract available vacataire types
+                    $vacataireTypes = [];
+                    if ($ue->vacataire_types) {
+                        if (is_string($ue->vacataire_types)) {
+                            $decoded = json_decode($ue->vacataire_types, true);
+                            if (is_array($decoded)) {
+                                $vacataireTypes = $decoded;
+                            }
+                        } else if (is_array($ue->vacataire_types)) {
+                            $vacataireTypes = $ue->vacataire_types;
+                        }
+                    }
+
+                    // Skip UE if no vacataire types defined
+                    if (empty($vacataireTypes)) {
+                        continue;
+                    }
+
+                    // STEP 3: Check session types not assigned to ANY user (enseignant or vacataire)
+                    $assignedTypesToAnyUser = Affectation::where('ue_id', $ue->id)
+                        ->where('annee_universitaire', $currentYear)
+                        ->where('validee', 'valide')
+                        ->distinct()
+                        ->pluck('type_seance')
+                        ->toArray();
+
+                    // Only show session types that are:
+                    // 1. Approved as vacataire by chef (in vacataire_types)
+                    // 2. Not assigned to ANY user yet
+                    $availableTypes = [];
+                    foreach ($vacataireTypes as $type) {
+                        if (!in_array($type, $assignedTypesToAnyUser)) {
+                            $availableTypes[] = $type;
+                        }
+                    }
+
+                    // Skip UE if no available types remain
+                    if (empty($availableTypes)) {
+                        continue;
+                    }
+
+                    // Add UE to compatible list with available types
+                    $compatibleUEs[] = [
+                        'id' => $ue->id,
+                        'code' => $ue->code,
+                        'nom' => $ue->nom,
+                        'specialite' => $ue->specialite,
+                        'filiere_id' => $ue->filiere_id,
+                        'filiere_nom' => $ue->filiere->nom ?? 'N/A',
+                        'departement_nom' => $ue->departement->nom ?? 'N/A',
+                        'vacataire_types' => $availableTypes, // Only available types
+                        'total_hours' => $ue->heures_cm + $ue->heures_td + $ue->heures_tp
+                    ];
+
+                } catch (\Exception $e) {
+                    \Log::error('Error processing UE: ' . $e->getMessage(), [
+                        'ue_id' => $ue->id ?? 'unknown',
+                        'ue_code' => $ue->code ?? 'unknown',
+                        'error_line' => $e->getLine(),
+                        'error_file' => $e->getFile()
+                    ]);
+                    // Continue to next UE
+                    continue;
+                }
+            }
+
+            \Log::info('🔥 Final compatible UEs for vacataire (STRICT FILTERING):', [
+                'vacataire_id' => $vacataireId,
+                'vacataire_name' => $vacataire->name,
+                'total_ues_found' => count($compatibleUEs),
+                'filtering_conditions' => [
+                    'belongs_to_coordonnateur_filieres' => true,
+                    'not_affected_to_anyone' => true,
+                    'strict_speciality_match' => 'ALL UE specialities must be in vacataire specialities',
+                    'est_vacant' => true,
+                    'has_vacataire_types' => true,
+                    'session_types_not_assigned_to_any_user' => true,
+                    'shows_only_vacataire_approved_types' => true
+                ],
+                'sample_ues' => array_slice($compatibleUEs, 0, 3)
+            ]);
+
+            return response()->json($compatibleUEs);
+
+        } catch (\Exception $e) {
+            \Log::error('Error in getCompatibleUEs: ' . $e->getMessage(), [
+                'vacataire_id' => $vacataireId,
+                'error_line' => $e->getLine(),
+                'error_file' => $e->getFile(),
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Erreur lors du chargement des UEs',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     // Export emploi du temps to PDF - CURRENT DRAG-AND-DROP STATE

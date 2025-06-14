@@ -8,25 +8,88 @@
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-success text-white">
+                <div class="card-header bg-gradient text-white" style="background: linear-gradient(135deg, #7c3aed, #a855f7) !important;">
                     <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="fas fa-graduation-cap me-2"></i>Gestion des Notes
-                        </h5>
+                        <div>
+                            <h4 class="mb-1">
+                                <i class="fas fa-graduation-cap me-2"></i>Gestion des Notes
+                            </h4>
+                            <p class="mb-0 opacity-75">Importez et gérez les notes de vos étudiants via Excel</p>
+                        </div>
                         <div class="d-flex gap-2">
-                            <span class="badge bg-light text-success">
-                                {{ $notes->total() }} note(s)
+                            <span class="badge bg-light text-primary fs-6">
+                                {{ $notes->total() }} note(s) saisie(s)
                             </span>
-                            <button class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#uploadModal">
-                                <i class="fas fa-upload me-1"></i>Importer Notes
-                            </button>
                         </div>
                     </div>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted mb-0">
-                        Gérez les notes de vos étudiants pour les sessions normale et rattrapage.
-                    </p>
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <p class="text-muted mb-0">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Téléchargez le modèle Excel, remplissez les notes, puis importez le fichier pour une saisie rapide et efficace.
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="d-flex gap-2 justify-content-end">
+                                <a href="{{ route('vacataire.notes.download-template-page') }}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-download me-1"></i>Télécharger Modèle
+                                </a>
+                                <a href="{{ route('vacataire.notes.import-page') }}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-upload me-1"></i>Importer Notes
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions & Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="mb-2">
+                        <i class="fas fa-book-open fa-2x text-primary"></i>
+                    </div>
+                    <h5 class="mb-1">{{ $uesAssignees->count() }}</h5>
+                    <small class="text-muted">UEs Assignées</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="mb-2">
+                        <i class="fas fa-users fa-2x text-success"></i>
+                    </div>
+                    <h5 class="mb-1">{{ $notes->where('session_type', 'normale')->count() }}</h5>
+                    <small class="text-muted">Notes Normales</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="mb-2">
+                        <i class="fas fa-redo fa-2x text-warning"></i>
+                    </div>
+                    <h5 class="mb-1">{{ $notes->where('session_type', 'rattrapage')->count() }}</h5>
+                    <small class="text-muted">Notes Rattrapage</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="mb-2">
+                        <i class="fas fa-user-times fa-2x text-danger"></i>
+                    </div>
+                    <h5 class="mb-1">{{ $notes->where('is_absent', true)->count() }}</h5>
+                    <small class="text-muted">Absents</small>
                 </div>
             </div>
         </div>
@@ -36,37 +99,43 @@
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-filter me-2"></i>Filtres de Recherche
+                    </h6>
+                </div>
                 <div class="card-body">
-                    <form method="GET" action="{{ route('vacataire.notes') }}" class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label">
-                                <i class="fas fa-book me-1"></i>Unité d'Enseignement
-                            </label>
-                            <select name="ue_id" class="form-select" onchange="this.form.submit()">
-                                <option value="">Toutes les UEs</option>
-                                @foreach($uesAssignees as $ue)
-                                    <option value="{{ $ue->id }}" {{ request('ue_id') == $ue->id ? 'selected' : '' }}>
-                                        {{ $ue->code }} - {{ $ue->nom }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">
-                                <i class="fas fa-calendar me-1"></i>Session
-                            </label>
-                            <select name="session" class="form-select" onchange="this.form.submit()">
-                                <option value="">Toutes les sessions</option>
-                                <option value="normale" {{ request('session') == 'normale' ? 'selected' : '' }}>Session Normale</option>
-                                <option value="rattrapage" {{ request('session') == 'rattrapage' ? 'selected' : '' }}>Session Rattrapage</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">&nbsp;</label>
-                            <div class="d-grid">
-                                <a href="{{ route('vacataire.notes') }}" class="btn btn-outline-secondary">
-                                    <i class="fas fa-times me-1"></i>Réinitialiser
-                                </a>
+                    <form method="GET" action="{{ route('vacataire.notes') }}">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Unité d'Enseignement</label>
+                                <select name="ue_id" class="form-select">
+                                    <option value="">🔍 Toutes les UEs</option>
+                                    @foreach($uesAssignees as $ue)
+                                        <option value="{{ $ue->id }}" {{ request('ue_id') == $ue->id ? 'selected' : '' }}>
+                                            {{ $ue->code }} - {{ $ue->nom }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">Type de Session</label>
+                                <select name="session" class="form-select">
+                                    <option value="">📋 Toutes les sessions</option>
+                                    <option value="normale" {{ request('session') == 'normale' ? 'selected' : '' }}>📝 Session Normale</option>
+                                    <option value="rattrapage" {{ request('session') == 'rattrapage' ? 'selected' : '' }}>🔄 Session Rattrapage</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">&nbsp;</label>
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="fas fa-search me-1"></i>Rechercher
+                                    </button>
+                                    <a href="{{ route('vacataire.notes') }}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-refresh me-1"></i>Réinitialiser
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </form>
@@ -86,9 +155,9 @@
                         </h6>
                         <div class="d-flex gap-2">
                             <!-- Export removed - not in allowed list -->
-                            <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+                            <a href="{{ route('vacataire.notes.add-page') }}" class="btn btn-success btn-sm">
                                 <i class="fas fa-plus me-1"></i>Ajouter Note
-                            </button>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -113,52 +182,52 @@
                                         <tr>
                                             <td>
                                                 <div>
-                                                    <strong class="text-primary">{{ $note->uniteEnseignement->code }}</strong>
+                                                    <strong class="text-primary">{{ $note->ue->code ?? 'N/A' }}</strong>
                                                     <br>
-                                                    <small class="text-muted">{{ $note->uniteEnseignement->nom }}</small>
+                                                    <small class="text-muted">{{ Str::limit($note->ue->nom ?? 'N/A', 30) }}</small>
                                                 </div>
                                             </td>
                                             <td>
                                                 <div>
-                                                    <strong>{{ $note->etudiant->nom ?? 'N/A' }}</strong>
+                                                    <strong>{{ $note->etudiant->name ?? 'N/A' }}</strong>
                                                     <br>
                                                     <small class="text-muted">{{ $note->etudiant->matricule ?? 'N/A' }}</small>
                                                 </div>
                                             </td>
                                             <td>
-                                                @if($note->note_normale !== null)
+                                                @if($note->note_normale === 'Absent')
+                                                    <span class="badge bg-warning fs-6">Absent</span>
+                                                @elseif($note->note_normale !== '-')
                                                     <span class="badge bg-{{ $note->note_normale >= 10 ? 'success' : 'danger' }} fs-6">
-                                                        {{ number_format($note->note_normale, 2) }}/20
+                                                        {{ $note->note_normale }}/20
                                                     </span>
                                                 @else
                                                     <span class="text-muted">-</span>
                                                 @endif
                                             </td>
                                             <td>
-                                                @if($note->note_rattrapage !== null)
+                                                @if($note->note_rattrapage === 'Absent')
+                                                    <span class="badge bg-warning fs-6">Absent</span>
+                                                @elseif($note->note_rattrapage !== '-')
                                                     <span class="badge bg-{{ $note->note_rattrapage >= 10 ? 'success' : 'danger' }} fs-6">
-                                                        {{ number_format($note->note_rattrapage, 2) }}/20
+                                                        {{ $note->note_rattrapage }}/20
                                                     </span>
                                                 @else
                                                     <span class="text-muted">-</span>
                                                 @endif
                                             </td>
                                             <td>
-                                                @php
-                                                    $noteFinale = max($note->note_normale ?? 0, $note->note_rattrapage ?? 0);
-                                                @endphp
-                                                <span class="badge bg-{{ $noteFinale >= 10 ? 'success' : 'danger' }} fs-6">
-                                                    {{ number_format($noteFinale, 2) }}/20
-                                                </span>
+                                                @if($note->status === 'Validé')
+                                                    <span class="badge bg-success fs-6">{{ $note->note_finale }}</span>
+                                                @else
+                                                    <span class="badge bg-danger fs-6">{{ $note->note_finale }}</span>
+                                                @endif
                                             </td>
                                             <td>
-                                                <span class="badge bg-info">{{ ucfirst($note->session ?? 'normale') }}</span>
+                                                <span class="badge bg-info">{{ $note->session }}</span>
                                             </td>
                                             <td>
-                                                @php
-                                                    $noteFinale = max($note->note_normale ?? 0, $note->note_rattrapage ?? 0);
-                                                @endphp
-                                                @if($noteFinale >= 10)
+                                                @if($note->status === 'Validé')
                                                     <span class="badge bg-success">
                                                         <i class="fas fa-check me-1"></i>Validé
                                                     </span>
@@ -170,16 +239,27 @@
                                             </td>
                                             <td>
                                                 <div class="btn-group btn-group-sm">
-                                                    <button class="btn btn-outline-primary" 
-                                                            onclick="editNote({{ $note->id }})"
-                                                            title="Modifier">
-                                                        <i class="fas fa-edit"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-info" 
-                                                            onclick="viewNoteHistory({{ $note->id }})"
-                                                            title="Historique">
-                                                        <i class="fas fa-history"></i>
-                                                    </button>
+                                                    @if($note->normale_note_obj)
+                                                        <a href="{{ route('vacataire.notes.edit-page', $note->normale_note_obj->id) }}"
+                                                           class="btn btn-outline-primary"
+                                                           title="Modifier note normale">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    @endif
+                                                    @if($note->rattrapage_note_obj)
+                                                        <a href="{{ route('vacataire.notes.edit-page', $note->rattrapage_note_obj->id) }}"
+                                                           class="btn btn-outline-warning"
+                                                           title="Modifier note rattrapage">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    @endif
+                                                    @if($note->normale_note_obj)
+                                                        <button class="btn btn-outline-danger"
+                                                                onclick="deleteNote({{ $note->normale_note_obj->id }})"
+                                                                title="Supprimer note">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    @endif
                                                 </div>
                                             </td>
                                         </tr>
@@ -206,9 +286,9 @@
                                         <i class="fas fa-times me-1"></i>Réinitialiser les filtres
                                     </a>
                                 @endif
-                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+                                <a href="{{ route('vacataire.notes.add-page') }}" class="btn btn-primary">
                                     <i class="fas fa-plus me-1"></i>Ajouter une note
-                                </button>
+                                </a>
                             </div>
                         </div>
                     @endif
@@ -229,206 +309,157 @@
     @endif
 </div>
 
-<!-- Upload Modal -->
-<div class="modal fade" id="uploadModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-upload me-2"></i>Importer des Notes
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="uploadForm" enctype="multipart/form-data">
-                    @csrf
-                    <div class="mb-3">
-                        <label class="form-label">Unité d'Enseignement</label>
-                        <select name="ue_id" class="form-select" required>
-                            <option value="">Sélectionner une UE</option>
-                            @foreach($uesAssignees as $ue)
-                                <option value="{{ $ue->id }}">{{ $ue->code }} - {{ $ue->nom }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Session</label>
-                        <select name="session" class="form-select" required>
-                            <option value="normale">Session Normale</option>
-                            <option value="rattrapage">Session Rattrapage</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Fichier Excel/CSV</label>
-                        <input type="file" name="file" class="form-control" accept=".xlsx,.xls,.csv" required>
-                        <div class="form-text">
-                            Formats acceptés: Excel (.xlsx, .xls) ou CSV (.csv)
-                        </div>
-                    </div>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        <strong>Format requis:</strong> Le fichier doit contenir les colonnes: Matricule, Nom, Note
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-success" onclick="uploadNotes()">
-                    <i class="fas fa-upload me-1"></i>Importer
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Modals removed - using separate blade views instead -->
 
-<!-- Add Note Modal -->
-<div class="modal fade" id="addNoteModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-plus me-2"></i>Ajouter une Note
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="addNoteForm">
-                    @csrf
-                    <div class="mb-3">
-                        <label class="form-label">Unité d'Enseignement</label>
-                        <select name="ue_id" class="form-select" required>
-                            <option value="">Sélectionner une UE</option>
-                            @foreach($uesAssignees as $ue)
-                                <option value="{{ $ue->id }}">{{ $ue->code }} - {{ $ue->nom }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Matricule Étudiant</label>
-                        <input type="text" name="matricule" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Nom Étudiant</label>
-                        <input type="text" name="nom_etudiant" class="form-control" required>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Note Normale (/20)</label>
-                                <input type="number" name="note_normale" class="form-control" 
-                                       min="0" max="20" step="0.01">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Note Rattrapage (/20)</label>
-                                <input type="number" name="note_rattrapage" class="form-control" 
-                                       min="0" max="20" step="0.01">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Session</label>
-                        <select name="session" class="form-select" required>
-                            <option value="normale">Session Normale</option>
-                            <option value="rattrapage">Session Rattrapage</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-primary" onclick="saveNote()">
-                    <i class="fas fa-save me-1"></i>Enregistrer
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+@push('styles')
+<style>
+/* Fix modal z-index issues */
+.modal {
+    z-index: 9999 !important;
+}
+
+.modal-backdrop {
+    z-index: 9998 !important;
+}
+
+.modal-dialog {
+    z-index: 10000 !important;
+    position: relative;
+}
+
+.modal-content {
+    z-index: 10001 !important;
+    position: relative;
+}
+
+/* Ensure form elements are clickable */
+.modal-body input,
+.modal-body select,
+.modal-body textarea,
+.modal-body button {
+    z-index: 10002 !important;
+    position: relative;
+}
+
+/* Fix any overlay issues */
+.modal.show {
+    display: block !important;
+    z-index: 9999 !important;
+}
+
+.modal.show .modal-dialog {
+    transform: none !important;
+    z-index: 10000 !important;
+}
+
+/* Ensure dropdown menus work in modals */
+.modal .dropdown-menu {
+    z-index: 10003 !important;
+}
+
+/* Fix select2 or other plugin dropdowns if used */
+.select2-container {
+    z-index: 10004 !important;
+}
+
+.select2-dropdown {
+    z-index: 10005 !important;
+}
+</style>
+@endpush
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📊 VACATAIRE NOTES PAGE INITIALIZED');
     console.log('💜 Total notes:', {{ $notes->total() }});
+
+    // Fix modal z-index issues
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(modal => {
+        modal.style.zIndex = '9999';
+
+        // Ensure modal shows properly
+        modal.addEventListener('show.bs.modal', function() {
+            this.style.zIndex = '9999';
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.style.zIndex = '9998';
+            }
+        });
+
+        // Fix modal dialog positioning
+        modal.addEventListener('shown.bs.modal', function() {
+            const dialog = this.querySelector('.modal-dialog');
+            if (dialog) {
+                dialog.style.zIndex = '10000';
+                dialog.style.position = 'relative';
+            }
+
+            const content = this.querySelector('.modal-content');
+            if (content) {
+                content.style.zIndex = '10001';
+                content.style.position = 'relative';
+            }
+        });
+    });
+
+    // Ensure form elements are accessible
+    const formElements = document.querySelectorAll('.modal input, .modal select, .modal textarea, .modal button');
+    formElements.forEach(element => {
+        element.style.zIndex = '10002';
+        element.style.position = 'relative';
+    });
 });
 
-function uploadNotes() {
-    const form = document.getElementById('uploadForm');
-    const formData = new FormData(form);
-    
-    // Show loading
-    const btn = event.target;
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Importation...';
-    btn.disabled = true;
-    
-    // Simulate upload (replace with actual endpoint)
-    setTimeout(() => {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        bootstrap.Modal.getInstance(document.getElementById('uploadModal')).hide();
-        
-        // Show success message
-        showNotification('Notes importées avec succès!', 'success');
-        
-        // Reload page
-        setTimeout(() => {
-            window.location.reload();
-        }, 1500);
-    }, 2000);
-}
+// Modal functions removed - using separate blade views instead
 
-function saveNote() {
-    const form = document.getElementById('addNoteForm');
-    const formData = new FormData(form);
-    
-    // Show loading
-    const btn = event.target;
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Enregistrement...';
-    btn.disabled = true;
-    
-    // Simulate save (replace with actual endpoint)
-    setTimeout(() => {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        bootstrap.Modal.getInstance(document.getElementById('addNoteModal')).hide();
-        
-        // Show success message
-        showNotification('Note ajoutée avec succès!', 'success');
-        
-        // Reload page
-        setTimeout(() => {
-            window.location.reload();
-        }, 1500);
-    }, 1000);
-}
+function deleteNote(noteId) {
+    console.log('🗑️ DELETE NOTE CLICKED:', noteId);
 
-function editNote(noteId) {
-    console.log('Editing note:', noteId);
-    showNotification('Fonctionnalité d\'édition en cours de développement', 'info');
-}
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette note ? Cette action est irréversible.')) {
+        // Show loading notification
+        showNotification('Suppression en cours...', 'info');
 
-function viewNoteHistory(noteId) {
-    console.log('Viewing history for note:', noteId);
-    showNotification('Historique des modifications en cours de développement', 'info');
+        // Create form to submit delete request
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = `/vacataire/notes/${noteId}/delete`;
+
+        // Add CSRF token
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = '_token';
+        csrfInput.value = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        form.appendChild(csrfInput);
+
+        // Add method override for DELETE
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'DELETE';
+        form.appendChild(methodInput);
+
+        // Submit form
+        document.body.appendChild(form);
+        form.submit();
+    }
 }
 
 // Export function removed - not in allowed list
 
 function showNotification(message, type = 'info') {
     const notification = `
-        <div class="alert alert-${type} alert-dismissible fade show position-fixed" 
-             style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+        <div class="alert alert-${type} alert-dismissible fade show position-fixed"
+             style="top: 20px; right: 20px; z-index: 99999; min-width: 300px;">
             <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'times' : 'info'}-circle me-2"></i>
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     `;
-    
+
     document.body.insertAdjacentHTML('beforeend', notification);
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
         const alert = document.querySelector('.alert:last-of-type');

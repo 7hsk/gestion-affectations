@@ -40,17 +40,50 @@ class AuthController extends Controller
 
         if (!$user) {
             Log::warning('User not found', ['email' => $credentials['email']]);
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Adresse email non trouvée.'
+                ], 401);
+            }
             return back()->withErrors(['email' => 'The provided credentials do not match our records.']);
         }
 
         if (Auth::attempt($credentials, $request->remember)) {
             $request->session()->regenerate();
             Log::info('User logged in', ['user_id' => Auth::id(), 'role' => Auth::user()->role]);
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'redirect' => $this->getRedirectUrl(Auth::user()->role)
+                ]);
+            }
+
             return $this->redirectToDashboard(Auth::user()->role);
         }
 
         Log::warning('Login failed', ['email' => $credentials['email']]);
+        if ($request->ajax()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mot de passe incorrect.'
+            ], 401);
+        }
         return back()->withErrors(['email' => 'The provided credentials do not match our records.']);
+    }
+
+    protected function getRedirectUrl($role)
+    {
+        $routes = [
+            'admin' => 'admin.dashboard',
+            'chef' => 'chef.dashboard',
+            'coordonnateur' => 'coordonnateur.dashboard',
+            'enseignant' => 'enseignant.dashboard',
+            'vacataire' => 'vacataire.dashboard',
+        ];
+
+        return route($routes[$role] ?? 'login');
     }
 
     protected function redirectToDashboard($role)

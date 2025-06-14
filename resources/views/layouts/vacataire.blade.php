@@ -455,7 +455,7 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <div class="sidebar-header">
-            <h4>🎓 Espace Vacataire</h4>
+            <h4>Espace Vacataire</h4>
             <div class="subtitle">ENSA Al Hoceima</div>
         </div>
 

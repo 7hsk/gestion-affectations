@@ -405,7 +405,7 @@
                         <div>
                             <button class="btn btn-primary" id="exportPdfBtn">
                                 <i class="fas fa-file-pdf me-2"></i>Exporter PDF
-                            </button>
+                    </button>
                         </div>
                     </div>
                 </div>

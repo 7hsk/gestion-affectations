@@ -210,9 +210,14 @@
             </h2>
             <p class="text-muted mb-0">Affectez les UEs disponibles aux vacataires de votre département</p>
         </div>
-        <button class="btn btn-outline-success" onclick="location.reload()">
-            <i class="fas fa-sync-alt me-2"></i>Actualiser
-        </button>
+        <div class="d-flex gap-2">
+            <a href="{{ route('coordonnateur.vacataires.create') }}" class="btn btn-success">
+                <i class="fas fa-user-plus me-2"></i>Créer Vacataire
+            </a>
+            <button class="btn btn-outline-success" onclick="location.reload()">
+                <i class="fas fa-sync-alt me-2"></i>Actualiser
+            </button>
+        </div>
     </div>
 
     <!-- Statistics Cards -->
@@ -323,6 +328,8 @@
     <div class="spinner"></div>
 </div>
 
+<!-- Modal removed - Using dedicated page for creating vacataires -->
+
 @push('scripts')
 <script>
 // Global variables (same as chef)
@@ -350,6 +357,8 @@ function loadVacataires() {
     fetch('/coordonnateur/api/vacataires-list')
         .then(response => response.json())
         .then(data => {
+            // Store vacataires data globally for later use
+            window.vacatairesData = data;
             renderVacataires(data);
             document.getElementById('totalVacataires').textContent = data.length;
         })
@@ -420,7 +429,12 @@ function selectVacataire(vacataireId, element) {
 
     // Select new vacataire
     element.classList.add('selected');
-    selectedVacataire = vacataireId;
+
+    // Find the vacataire object from the loaded data
+    const vacataire = window.vacatairesData ? window.vacatairesData.find(v => v.id == vacataireId) : null;
+    selectedVacataire = vacataire || { id: vacataireId };
+
+    console.log('🔥 Selected vacataire:', selectedVacataire);
 
     // Load compatible UEs
     loadCompatibleUEs(vacataireId);
@@ -437,9 +451,22 @@ function loadCompatibleUEs(vacataireId) {
     `;
 
     fetch(`/coordonnateur/api/compatible-ues/${vacataireId}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            availableUEs = data;
+            console.log('🔥 Received UEs data:', data);
+
+            // Check if data is an error response
+            if (data.error) {
+                throw new Error(data.message || data.error);
+            }
+
+            // Ensure data is an array
+            availableUEs = Array.isArray(data) ? data : [];
             renderAvailableUEs();
         })
         .catch(error => {
@@ -448,6 +475,7 @@ function loadCompatibleUEs(vacataireId) {
                 <div class="empty-state">
                     <i class="fas fa-exclamation-triangle"></i>
                     <p>Erreur lors du chargement des UEs</p>
+                    <small class="text-muted">${error.message}</small>
                 </div>
             `;
         });
@@ -485,8 +513,18 @@ function createUEElement(ue) {
     div.dataset.selectedTypes = ''; // Track selected types
     div.draggable = false; // Initially not draggable
 
-    // Create type badges
-    const typeBadges = ue.vacataire_types.map(type => {
+    // Create type badges - Handle JSON string from backend
+    let vacataireTypes = [];
+    try {
+        vacataireTypes = typeof ue.vacataire_types === 'string' ?
+            JSON.parse(ue.vacataire_types) :
+            (Array.isArray(ue.vacataire_types) ? ue.vacataire_types : []);
+    } catch (e) {
+        console.error('Error parsing vacataire_types:', e, ue.vacataire_types);
+        vacataireTypes = [];
+    }
+
+    const typeBadges = vacataireTypes.map(type => {
         const badgeClass = type === 'CM' ? 'cm' : (type === 'TD' ? 'td' : 'tp');
         return `<span class="type-badge ${badgeClass}" data-type="${type}" onclick="toggleTypeSelection(this, event)">${type}</span>`;
     }).join('');
@@ -498,8 +536,8 @@ function createUEElement(ue) {
         </div>
         <div class="ue-name">${ue.nom}</div>
         <div class="ue-details-small">
-            <span><i class="fas fa-layer-group me-1"></i>${ue.filiere.nom}</span>
-            <span><i class="fas fa-building me-1"></i>${ue.departement.nom}</span>
+            <span><i class="fas fa-layer-group me-1"></i>${ue.filiere_nom || ue.filiere?.nom || 'N/A'}</span>
+            <span><i class="fas fa-building me-1"></i>${ue.departement_nom || ue.departement?.nom || 'N/A'}</span>
             ${ue.specialite ? `<span><i class="fas fa-tag me-1"></i>${ue.specialite}</span>` : ''}
         </div>
     `;
@@ -696,17 +734,123 @@ function updateSaveButtons() {
     document.getElementById('saveBtn').disabled = !hasAssignments;
 }
 
-// Save affectations function
+// Save affectations function - WORKING IMPLEMENTATION
 function saveAffectations() {
     if (assignedUEs.length === 0) {
-        alert('Aucune affectation à sauvegarder');
+        showAlert('Aucune affectation à sauvegarder', 'warning');
         return;
     }
 
-    // Implementation for saving affectations
-    console.log('Saving affectations:', assignedUEs);
-    alert('Fonctionnalité de sauvegarde à implémenter');
+    if (!selectedVacataire) {
+        showAlert('Veuillez sélectionner un vacataire', 'warning');
+        return;
+    }
+
+    // Prepare data for saving
+    const vacataireId = selectedVacataire.id || selectedVacataire;
+    const data = {
+        vacataire_id: vacataireId,
+        ues: assignedUEs.map(ue => ({
+            ue_id: ue.id,
+            type_seance: ue.selectedTypes[0] || 'CM' // Use first selected type
+        }))
+    };
+
+    console.log('🔥 Saving vacataire affectations:', data);
+    console.log('🔥 Selected vacataire object:', selectedVacataire);
+
+    // Show loading state
+    const saveBtn = document.getElementById('saveBtn');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sauvegarde...';
+    saveBtn.disabled = true;
+
+    // Send request to save affectations
+    fetch('/coordonnateur/vacataires/save-affectations', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showAlert(`${data.created_count} affectation(s) créée(s) avec succès!`, 'success');
+            resetAll();
+        } else {
+            showAlert('Erreur: ' + (data.message || 'Erreur inconnue'), 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('Erreur lors de la sauvegarde', 'danger');
+    })
+    .finally(() => {
+        saveBtn.innerHTML = originalText;
+        updateSaveButtons();
+    });
 }
+
+// Reset all assignments after successful save
+function resetAll() {
+    assignedUEs = [];
+    availableUEs = [];
+    selectedVacataire = null;
+
+    // Clear UI
+    document.getElementById('assignedUEs').innerHTML = `
+        <div class="drop-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)">
+            <i class="fas fa-hand-point-right"></i>
+            <h5>Glissez-déposez les UEs ici</h5>
+            <p>Les UEs compatibles avec les spécialités du vacataire apparaîtront à gauche</p>
+        </div>
+    `;
+
+    document.getElementById('availableUEs').innerHTML = `
+        <div class="empty-state">
+            <i class="fas fa-user-graduate"></i>
+            <h5>Sélectionnez un vacataire</h5>
+            <p>Les UEs compatibles avec ses spécialités apparaîtront ici</p>
+        </div>
+    `;
+
+    // Reset vacataire selection
+    document.querySelectorAll('.vacataire-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+
+    updateCounts();
+    updateSaveButtons();
+}
+
+// Show alert function (same as chef)
+function showAlert(message, type) {
+    const alertClass = type === 'success' ? 'alert-success' :
+                      type === 'warning' ? 'alert-warning' : 'alert-danger';
+    const iconClass = type === 'success' ? 'fa-check-circle' :
+                      type === 'warning' ? 'fa-exclamation-triangle' : 'fa-exclamation-triangle';
+
+    const notification = document.createElement('div');
+    notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        <i class="fas ${iconClass} me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Modal functions removed - Using dedicated page for creating vacataires
 
 // Add dynamic CSS styles for elements created by JavaScript
 function addDynamicStyles() {

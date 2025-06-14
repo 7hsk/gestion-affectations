@@ -150,7 +150,7 @@ Route::prefix('coordinator')->middleware(['auth', 'role:coordonnateur'])->group(
 */
 
 // Enseignant Routes
-Route::prefix('enseignant')->middleware(['auth', \App\Http\Middleware\CheckRole::class . ':enseignant'])->group(function () {
+Route::prefix('enseignant')->middleware(['auth', \App\Http\Middleware\CheckEnseignantAccess::class])->group(function () {
     Route::get('/enseignant-dashboard', [EnseignantController::class, 'dashboard'])->name('enseignant.dashboard');
 
     // UE Management and Affectation Requests
@@ -165,10 +165,21 @@ Route::prefix('enseignant')->middleware(['auth', \App\Http\Middleware\CheckRole:
     // Legacy routes (keeping for compatibility)
     Route::get('/unites', [EnseignantController::class, 'unites'])->name('enseignant.unites');
 
-    // Notes
+    // Notes Management (cloned from vacataire system)
     Route::get('/notes', [EnseignantController::class, 'notes'])->name('enseignant.notes');
-    // Route::post('/notes/import', [EnseignantController::class, 'importNotes'])->name('enseignant.notes.import'); // REMOVED - not in allowed list
-    Route::post('/notes/store', [EnseignantController::class, 'storeNotes'])->name('enseignant.notes.store');
+
+    // Notes management - Pages
+    Route::get('/notes/download-template', [EnseignantController::class, 'showDownloadTemplatePage'])->name('enseignant.notes.download-template-page');
+    Route::get('/notes/import', [EnseignantController::class, 'showImportPage'])->name('enseignant.notes.import-page');
+    Route::get('/notes/add', [EnseignantController::class, 'showAddNotePage'])->name('enseignant.notes.add-page');
+    Route::get('/notes/{note}/edit', [EnseignantController::class, 'showEditNotePage'])->name('enseignant.notes.edit-page');
+
+    // Notes management - Actions
+    Route::post('/notes/import', [EnseignantController::class, 'importNotes'])->name('enseignant.notes.import');
+    Route::post('/notes/download-template', [EnseignantController::class, 'downloadNotesTemplate'])->name('enseignant.notes.download-template');
+    Route::post('/notes/store', [EnseignantController::class, 'storeNote'])->name('enseignant.notes.store');
+    Route::put('/notes/{note}', [EnseignantController::class, 'updateNote'])->name('enseignant.notes.update');
+    Route::delete('/notes/{note}/delete', [EnseignantController::class, 'deleteNote'])->name('enseignant.notes.delete');
 
     // Emploi du temps
     Route::get('/emploi-du-temps', [EnseignantController::class, 'emploiDuTemps'])->name('enseignant.emploi-du-temps');
@@ -269,6 +280,9 @@ Route::prefix('coordonnateur')->name('coordonnateur.')->middleware(['auth', \App
 
     // Gestion des vacataires
     Route::get('/vacataires', [\App\Http\Controllers\Admin\coordonnateur\CoordonnateurController::class, 'vacataires'])->name('vacataires');
+    Route::get('/vacataires/create', [\App\Http\Controllers\Admin\coordonnateur\CoordonnateurController::class, 'showCreateVacataire'])->name('vacataires.create');
+    Route::post('/vacataires/store', [\App\Http\Controllers\Admin\coordonnateur\CoordonnateurController::class, 'storeVacataire'])->name('vacataires.store');
+    Route::post('/vacataires/save-affectations', [\App\Http\Controllers\Admin\coordonnateur\CoordonnateurController::class, 'saveVacataireAffectations'])->name('vacataires.save-affectations');
     Route::post('/vacataires/affecter', [\App\Http\Controllers\Admin\coordonnateur\CoordonnateurController::class, 'affecterVacataire'])->name('vacataires.affecter');
     Route::post('/vacataires/creer', [\App\Http\Controllers\Admin\coordonnateur\CoordonnateurController::class, 'creerVacataire'])->name('vacataires.creer');
 
@@ -318,6 +332,19 @@ Route::prefix('vacataire')->middleware(['auth', \App\Http\Middleware\CheckRole::
     // Emploi du temps
     Route::get('/emploi-du-temps', [\App\Http\Controllers\Admin\vacataire\VacataireController::class, 'emploiDuTemps'])->name('vacataire.emploi-du-temps');
     Route::post('/emploi-du-temps/export', [\App\Http\Controllers\Admin\vacataire\VacataireController::class, 'exportEmploiDuTemps'])->name('vacataire.emploi-du-temps.export');
+
+    // Notes management - Pages
+    Route::get('/notes/download-template', [\App\Http\Controllers\Admin\vacataire\VacataireController::class, 'showDownloadTemplatePage'])->name('vacataire.notes.download-template-page');
+    Route::get('/notes/import', [\App\Http\Controllers\Admin\vacataire\VacataireController::class, 'showImportPage'])->name('vacataire.notes.import-page');
+    Route::get('/notes/add', [\App\Http\Controllers\Admin\vacataire\VacataireController::class, 'showAddNotePage'])->name('vacataire.notes.add-page');
+    Route::get('/notes/{note}/edit', [\App\Http\Controllers\Admin\vacataire\VacataireController::class, 'showEditNotePage'])->name('vacataire.notes.edit-page');
+
+    // Notes management - Actions
+    Route::post('/notes/import', [\App\Http\Controllers\Admin\vacataire\VacataireController::class, 'importNotes'])->name('vacataire.notes.import');
+    Route::post('/notes/download-template', [\App\Http\Controllers\Admin\vacataire\VacataireController::class, 'downloadNotesTemplate'])->name('vacataire.notes.download-template');
+    Route::post('/notes/store', [\App\Http\Controllers\Admin\vacataire\VacataireController::class, 'storeNote'])->name('vacataire.notes.store');
+    Route::put('/notes/{note}', [\App\Http\Controllers\Admin\vacataire\VacataireController::class, 'updateNote'])->name('vacataire.notes.update');
+    Route::delete('/notes/{note}/delete', [\App\Http\Controllers\Admin\vacataire\VacataireController::class, 'deleteNote'])->name('vacataire.notes.delete');
 });
 
 // Common Routes (accessible by all authenticated users) (TODO: Create ProfileController)

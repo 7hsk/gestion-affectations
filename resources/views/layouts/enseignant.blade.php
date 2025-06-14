@@ -539,6 +539,22 @@
         </div>
 
         <div class="nav-footer">
+            @if(Auth::user()->role === 'chef')
+            <div class="nav-item">
+                <a href="{{ route('chef.dashboard') }}" class="sidebar-link">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Mode Chef</span>
+                </a>
+            </div>
+            @endif
+            @if(Auth::user()->role === 'coordonnateur')
+            <div class="nav-item">
+                <a href="{{ route('coordonnateur.dashboard') }}" class="sidebar-link">
+                    <i class="fas fa-user-graduate"></i>
+                    <span>Mode Coordonnateur</span>
+                </a>
+            </div>
+            @endif
             <div class="nav-item">
                 <a href="#" class="sidebar-link" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
                     <i class="fas fa-sign-out-alt"></i>

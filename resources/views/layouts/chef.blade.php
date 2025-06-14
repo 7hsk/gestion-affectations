@@ -757,11 +757,19 @@
 
             <div class="nav-footer">
                 <div class="nav-item">
-                    <a href="{{ route('logout') }}" class="nav-link"
-                       onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-                        <i class="fas fa-sign-out-alt"></i>
-                        Déconnexion
+                    <a href="{{ route('enseignant.dashboard') }}" class="nav-link">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                        <span>Mode Enseignant</span>
                     </a>
+                </div>
+                <div class="nav-item">
+                    <form method="POST" action="{{ route('logout') }}" class="d-inline">
+                        @csrf
+                        <button type="submit" class="nav-link border-0 bg-transparent w-100 text-start">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Déconnexion</span>
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -815,11 +823,6 @@
             @yield('content')
         </main>
     </div>
-
-    <!-- Logout Form -->
-    <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
-        @csrf
-    </form>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

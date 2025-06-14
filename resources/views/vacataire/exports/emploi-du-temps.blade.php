@@ -1,139 +1,340 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Emploi du Temps - {{ $vacataire->name }}</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        @page {
+            margin: 20mm;
+            size: A4 landscape;
+        }
+
+        * {
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
             color: #333;
         }
+
         .header {
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
             margin-bottom: 30px;
             padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
+            border-bottom: 2px solid #7c3aed;
         }
-        .header h1 {
-            color: #2c3e50;
-            margin: 0;
+
+        .header-left {
+            flex: 1;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+
+        .logo-left {
+            width: 60px;
+            height: 60px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .school-info {
+            flex: 1;
+        }
+
+        .school-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: #7c3aed;
+            margin-bottom: 5px;
+        }
+
+        .school-subtitle {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .current-date {
+            font-size: 10px;
+            color: #888;
+        }
+
+        .header-center {
+            flex: 2;
+            text-align: center;
+        }
+
+        .document-title {
             font-size: 24px;
+            font-weight: bold;
+            color: #7c3aed;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
-        .header p {
-            color: #7f8c8d;
-            margin: 5px 0 0;
+
+        .vacataire-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
         }
+
+        .vacataire-role {
+            font-size: 12px;
+            color: #7c3aed;
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+
+        .academic-year {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .header-right {
+            flex: 1;
+            text-align: right;
+        }
+
+        .export-info {
+            font-size: 10px;
+            color: #888;
+        }
+
         .schedule-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-            table-layout: fixed; /* Ensures consistent column widths */
+            margin-top: 20px;
+            font-size: 11px;
         }
-        .schedule-table th, .schedule-table td {
+
+        .schedule-table th,
+        .schedule-table td {
             border: 1px solid #ddd;
             padding: 8px;
             text-align: center;
-            vertical-align: top;
+            vertical-align: middle;
         }
+
         .schedule-table th {
+            background-color: #7c3aed;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .time-header {
+            background-color: #059669 !important;
+            width: 120px;
+        }
+
+        .day-header {
+            width: 140px;
+        }
+
+        .time-slot {
             background-color: #f8f9fa;
             font-weight: bold;
-            color: #2c3e50;
+            color: #7c3aed;
         }
-        .time-header {
-            width: 100px;
-            background-color: #e9ecef !important;
-            font-weight: bold;
-        }
-        .schedule-item {
-            border-radius: 4px;
+
+        .schedule-cell {
+            height: 60px;
+            vertical-align: top;
             padding: 5px;
-            margin-bottom: 3px;
-            color: white;
-            font-size: 0.75rem;
+        }
+
+        .schedule-item {
+            background-color: #f3e8ff;
+            border: 1px solid #7c3aed;
+            border-radius: 4px;
+            padding: 4px;
+            margin: 2px 0;
+            font-size: 10px;
             line-height: 1.2;
-            text-align: left;
         }
+
         .schedule-item.cm {
-            background-color: #dc3545; /* Red */
+            background-color: #ffebee;
+            border-color: #d32f2f;
+            color: #d32f2f;
         }
+
         .schedule-item.td {
-            background-color: #28a745; /* Green */
+            background-color: #e8f5e8;
+            border-color: #388e3c;
+            color: #388e3c;
         }
+
         .schedule-item.tp {
-            background-color: #17a2b8; /* Blue */
+            background-color: #e3f2fd;
+            border-color: #1976d2;
+            color: #1976d2;
         }
-        .schedule-title {
+
+        .ue-code {
             font-weight: bold;
+            display: block;
         }
-        .schedule-type {
-            font-size: 0.65rem;
-            opacity: 0.9;
+
+        .ue-name {
+            font-size: 9px;
+            color: #666;
+            display: block;
+            margin-top: 2px;
         }
-        .schedule-details {
-            font-size: 0.65rem;
-            opacity: 0.8;
+
+        .session-type {
+            font-size: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+            display: block;
+            margin-top: 2px;
         }
-        .schedule-filiere {
-            font-size: 0.6rem;
-            margin-top: 3px;
-            padding-top: 3px;
-            border-top: 1px solid rgba(255,255,255,0.3);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+
+        .group-info {
+            font-size: 8px;
+            color: #7c3aed;
+            font-weight: bold;
+            display: block;
+            margin-top: 1px;
         }
-        .empty-slot {
-            color: #bbb;
-            font-style: italic;
-            font-size: 0.75rem;
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 10px;
+            color: #888;
+        }
+
+        .legend {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+        }
+
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+
+        .legend-color.cm {
+            background-color: #ffebee;
+            border-color: #d32f2f;
+        }
+
+        .legend-color.td {
+            background-color: #e8f5e8;
+            border-color: #388e3c;
+        }
+
+        .legend-color.tp {
+            background-color: #e3f2fd;
+            border-color: #1976d2;
         }
     </style>
 </head>
 <body>
+    <!-- Header Section -->
     <div class="header">
-        <h1>Emploi du Temps</h1>
-        <p>Vacataire: <strong>{{ $vacataire->name }}</strong></p>
-        <p>Année universitaire: <strong>{{ $year }}</strong></p>
+        <div class="header-left">
+            <img src="{{ public_path('images/logo.png') }}" alt="Logo ENSA" class="logo-left">
+            <div class="school-info">
+                <div class="school-name">École Nationale des Sciences Appliquées</div>
+                <div class="school-subtitle">Al Hoceima</div>
+                <div class="current-date">Généré le {{ \Carbon\Carbon::now()->format('d/m/Y à H:i') }}</div>
+            </div>
+        </div>
+
+        <div class="header-center">
+            <div class="document-title">EMPLOI DU TEMPS</div>
+            <div class="vacataire-name">{{ $vacataire->name }}</div>
+            <div class="vacataire-role">Vacataire</div>
+            <div class="academic-year">Année Universitaire {{ date('Y') }}-{{ date('Y') + 1 }}</div>
+        </div>
+
+        <div class="header-right">
+            <div class="export-info">
+                Document généré automatiquement<br>
+                Système de Gestion des Affectations<br>
+                Vacataire
+            </div>
+        </div>
     </div>
 
+    <!-- Schedule Table -->
     <table class="schedule-table">
         <thead>
             <tr>
                 <th class="time-header">Horaires</th>
-                @foreach($jours as $jour)
-                    <th>{{ $jour }}</th>
-                @endforeach
+                <th class="day-header">Lundi</th>
+                <th class="day-header">Mardi</th>
+                <th class="day-header">Mercredi</th>
+                <th class="day-header">Jeudi</th>
+                <th class="day-header">Vendredi</th>
+                <th class="day-header">Samedi</th>
             </tr>
         </thead>
         <tbody>
-            @foreach($heures as $heure)
+            @php
+                $timeSlots = ['08:30-10:30', '10:30-12:30', '14:30-16:30', '16:30-18:30'];
+                $days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+
+                // Group schedules by day and time
+                $groupedSchedules = collect();
+                if($schedules && $schedules->count() > 0) {
+                    $groupedSchedules = $schedules->groupBy(['jour_semaine', function ($item) {
+                        $debut = \Carbon\Carbon::parse($item->heure_debut)->format('H:i');
+                        $fin = \Carbon\Carbon::parse($item->heure_fin)->format('H:i');
+                        return $debut.'-'.$fin;
+                    }]);
+                }
+            @endphp
+
+            @foreach($timeSlots as $timeSlot)
                 <tr>
-                    <td class="time-header">{{ $heure }}</td>
-                    @foreach($jours as $jour)
-                        <td>
-                            @if(isset($emploiDuTemps[$jour][$heure]) && $emploiDuTemps[$jour][$heure]->count() > 0)
-                                @foreach($emploiDuTemps[$jour][$heure] as $schedule)
+                    <td class="time-slot">{{ $timeSlot }}</td>
+                    @foreach($days as $day)
+                        <td class="schedule-cell">
+                            @if($groupedSchedules->isNotEmpty() && isset($groupedSchedules[$day][$timeSlot]))
+                                @foreach($groupedSchedules[$day][$timeSlot] as $schedule)
                                     <div class="schedule-item {{ strtolower($schedule->type_seance) }}">
-                                        <div class="schedule-title">{{ $schedule->uniteEnseignement->code }}</div>
-                                        <div class="schedule-type">{{ $schedule->type_seance }}</div>
-                                        <div class="schedule-details">
-                                            @if($schedule->group_number)
-                                                Gr. {{ $schedule->group_number }}
+                                        <span class="ue-code">{{ $schedule->uniteEnseignement->code ?? 'N/A' }}</span>
+                                        <span class="ue-name">{{ Str::limit($schedule->uniteEnseignement->nom ?? 'Non défini', 25) }}</span>
+                                        <span class="session-type">
+                                            {{ $schedule->type_seance ?? 'N/A' }}
+                                            @if(in_array($schedule->type_seance, ['TD', 'TP']) && $schedule->group_number)
+                                                -G{{ $schedule->group_number }}
                                             @endif
-                                            @if($schedule->salle)
-                                                • {{ $schedule->salle }}
-                                            @endif
-                                        </div>
-                                        <div class="schedule-filiere">
-                                            {{ $schedule->uniteEnseignement->filiere->nom ?? 'N/A' }}
-                                        </div>
+                                        </span>
+                                        @if(in_array($schedule->type_seance, ['TD', 'TP']) && $schedule->group_number)
+                                            <span class="group-info">Groupe {{ $schedule->group_number }}</span>
+                                        @endif
                                     </div>
                                 @endforeach
-                            @else
-                                <div class="empty-slot">Libre</div>
                             @endif
                         </td>
                     @endforeach
@@ -141,5 +342,35 @@
             @endforeach
         </tbody>
     </table>
+
+    @if($schedules->isEmpty())
+        <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px;">
+            <p style="color: #6c757d; font-style: italic; margin: 0;">
+                Aucun cours programmé pour le moment.
+            </p>
+        </div>
+    @endif
+
+    <!-- Legend -->
+    <div class="legend">
+        <div class="legend-item">
+            <div class="legend-color cm"></div>
+            <span>CM - Cours Magistral</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color td"></div>
+            <span>TD - Travaux Dirigés</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color tp"></div>
+            <span>TP - Travaux Pratiques</span>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>Ce document a été généré automatiquement par le Système de Gestion des Affectations d'Enseignement</p>
+        <p>ENSA Al Hoceima - École Nationale des Sciences Appliquées - Vacataire: {{ $vacataire->name }}</p>
+    </div>
 </body>
-</html> 
+</html>
