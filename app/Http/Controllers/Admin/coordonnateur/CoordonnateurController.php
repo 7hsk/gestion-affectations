@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use App\Models\User;
 use App\Models\UniteEnseignement;
@@ -976,14 +977,12 @@ class CoordonnateurController extends Controller
                     'departement' => $vacataire->departement->nom ?? null
                 ]
             ]);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Erreur de validation',
                 'errors' => $e->errors()
             ], 422);
-
         } catch (\Exception $e) {
             \Log::error('Error creating vacataire: ' . $e->getMessage());
             return response()->json([
@@ -2099,10 +2098,15 @@ class CoordonnateurController extends Controller
                 ->where('user_id', $coordonnateur->id)
                 ->pluck('filiere_id');
 
+            \Log::info('🔍 Coordonnateur filieres:', [
+                'coordonnateur_id' => $coordonnateur->id,
+                'filiere_ids' => $filiereIds->toArray()
+            ]);
+
             // Get vacataire with eager loaded affectations
-            $vacataire = User::with(['affectations' => function($query) use ($currentYear) {
+            $vacataire = User::with(['affectations' => function ($query) use ($currentYear) {
                 $query->where('annee_universitaire', $currentYear)
-                      ->where('validee', 'valide');
+                    ->where('validee', 'valide');
             }])->findOrFail($vacataireId);
 
             // Get vacataire specialities (properly trimmed)
@@ -2110,6 +2114,7 @@ class CoordonnateurController extends Controller
             if ($vacataire->specialite) {
                 $vacataireSpecialites = array_map('trim', explode(',', $vacataire->specialite));
                 $vacataireSpecialites = array_filter($vacataireSpecialites); // Remove empty values
+                $vacataireSpecialites = array_map('strtolower', $vacataireSpecialites); // Convert to lowercase
             }
 
             \Log::info('🔍 Vacataire details:', [
@@ -2119,82 +2124,105 @@ class CoordonnateurController extends Controller
                 'existing_affectations' => $vacataire->affectations->count()
             ]);
 
+            // Get ALL UEs in coordonnateur's filieres first (for debugging)
+            $allUes = UniteEnseignement::whereIn('filiere_id', $filiereIds)
+                ->with(['filiere', 'departement', 'affectations' => function ($query) use ($currentYear) {
+                    $query->where('annee_universitaire', $currentYear)
+                        ->where('validee', 'valide');
+                }])
+                ->get();
+
+            \Log::info('🔍 All UEs in filieres:', [
+                'total_count' => $allUes->count(),
+                'sample_ues' => $allUes->take(3)->map(function ($ue) {
+                    return [
+                        'id' => $ue->id,
+                        'code' => $ue->code,
+                        'nom' => $ue->nom,
+                        'est_vacant' => $ue->est_vacant,
+                        'vacataire_types' => $ue->vacataire_types,
+                        'specialite' => $ue->specialite,
+                        'affectations_count' => $ue->affectations->count()
+                    ];
+                })
+            ]);
+
             // Get UEs that are:
             // 1. In coordonnateur's managed filieres
             // 2. Marked as vacant (est_vacant = true)
             // 3. Have vacataire_types defined
-            // 4. NOT AFFECTED to anyone (no affectations at all)
             $ues = UniteEnseignement::whereIn('filiere_id', $filiereIds)
                 ->where('est_vacant', true)
                 ->whereNotNull('vacataire_types')
                 ->where('vacataire_types', '!=', '[]')
                 ->where('vacataire_types', '!=', 'null')
-                ->whereDoesntHave('affectations', function($query) use ($currentYear) {
-                    $query->where('annee_universitaire', $currentYear)
-                          ->where('validee', 'valide');
-                })
                 ->with(['filiere', 'departement'])
                 ->get();
 
-            \Log::info('🔍 Found UEs with strict filtering (vacant + no affectations + vacataire_types):', [
+            \Log::info('🔍 Filtered UEs:', [
                 'total_count' => $ues->count(),
                 'filiere_ids' => $filiereIds->toArray(),
                 'conditions' => [
                     'est_vacant' => true,
-                    'no_affectations' => true,
                     'has_vacataire_types' => true
-                ]
+                ],
+                'sample_ues' => $ues->take(3)->map(function ($ue) {
+                    return [
+                        'id' => $ue->id,
+                        'code' => $ue->code,
+                        'nom' => $ue->nom,
+                        'est_vacant' => $ue->est_vacant,
+                        'vacataire_types' => $ue->vacataire_types,
+                        'specialite' => $ue->specialite
+                    ];
+                })
             ]);
 
-            // Note: We now check for assignments to ANY user (not just this vacataire)
-            // This is handled in the individual UE processing loop
-
-            // Process each UE to:
-            // 1. Check speciality compatibility
-            // 2. Extract available vacataire types
-            // 3. Remove already affected types
+            // Process each UE to check compatibility
             $compatibleUEs = [];
 
             foreach ($ues as $ue) {
                 try {
-                    // STEP 1: Check speciality compatibility (STRICT MATCHING)
+                    // STEP 1: Check speciality compatibility (MORE FLEXIBLE MATCHING)
                     $isSpecialityCompatible = false;
 
                     // If UE has no speciality, it's compatible with everyone
                     if (empty($ue->specialite)) {
                         $isSpecialityCompatible = true;
                     }
-                    // If vacataire has no specialities, they can't teach specialized UEs
+                    // If vacataire has no specialities, they can teach general UEs
                     else if (empty($vacataireSpecialites)) {
-                        $isSpecialityCompatible = false;
+                        $isSpecialityCompatible = strtolower($ue->specialite) === 'général';
                     }
-                    // STRICT CHECK: ALL UE specialities must be in vacataire specialities
+                    // FLEXIBLE CHECK: ANY UE speciality can match ANY vacataire speciality
                     else {
                         $ueSpecialites = array_map('trim', explode(',', $ue->specialite));
                         $ueSpecialites = array_filter($ueSpecialites); // Remove empty values
+                        $ueSpecialites = array_map('strtolower', $ueSpecialites); // Convert to lowercase
 
-                        $isSpecialityCompatible = true; // Assume compatible until proven otherwise
-
-                        // Check that EVERY UE speciality is covered by vacataire
+                        // Check if ANY UE speciality matches ANY vacataire speciality
                         foreach ($ueSpecialites as $ueSpec) {
-                            $ueSpecCovered = false;
                             foreach ($vacataireSpecialites as $vacSpec) {
-                                if (stripos($ueSpec, $vacSpec) !== false ||
-                                    stripos($vacSpec, $ueSpec) !== false) {
-                                    $ueSpecCovered = true;
-                                    break;
+                                if (
+                                    stripos($ueSpec, $vacSpec) !== false ||
+                                    stripos($vacSpec, $ueSpec) !== false ||
+                                    $ueSpec === 'général' // General UEs are compatible with everyone
+                                ) {
+                                    $isSpecialityCompatible = true;
+                                    break 2; // Break both loops when a match is found
                                 }
-                            }
-                            // If any UE speciality is not covered, UE is incompatible
-                            if (!$ueSpecCovered) {
-                                $isSpecialityCompatible = false;
-                                break;
                             }
                         }
                     }
 
                     // Skip UE if specialities don't match
                     if (!$isSpecialityCompatible) {
+                        \Log::info('❌ UE skipped due to speciality mismatch:', [
+                            'ue_id' => $ue->id,
+                            'ue_code' => $ue->code,
+                            'ue_specialites' => $ue->specialite,
+                            'vacataire_specialites' => $vacataireSpecialites
+                        ]);
                         continue;
                     }
 
@@ -2213,10 +2241,14 @@ class CoordonnateurController extends Controller
 
                     // Skip UE if no vacataire types defined
                     if (empty($vacataireTypes)) {
+                        \Log::info('❌ UE skipped due to no vacataire types:', [
+                            'ue_id' => $ue->id,
+                            'ue_code' => $ue->code
+                        ]);
                         continue;
                     }
 
-                    // STEP 3: Check session types not assigned to ANY user (enseignant or vacataire)
+                    // STEP 3: Check session types not assigned to ANY user
                     $assignedTypesToAnyUser = Affectation::where('ue_id', $ue->id)
                         ->where('annee_universitaire', $currentYear)
                         ->where('validee', 'valide')
@@ -2236,6 +2268,12 @@ class CoordonnateurController extends Controller
 
                     // Skip UE if no available types remain
                     if (empty($availableTypes)) {
+                        \Log::info('❌ UE skipped due to no available types:', [
+                            'ue_id' => $ue->id,
+                            'ue_code' => $ue->code,
+                            'assigned_types' => $assignedTypesToAnyUser,
+                            'vacataire_types' => $vacataireTypes
+                        ]);
                         continue;
                     }
 
@@ -2248,10 +2286,15 @@ class CoordonnateurController extends Controller
                         'filiere_id' => $ue->filiere_id,
                         'filiere_nom' => $ue->filiere->nom ?? 'N/A',
                         'departement_nom' => $ue->departement->nom ?? 'N/A',
-                        'vacataire_types' => $availableTypes, // Only available types
+                        'vacataire_types' => $availableTypes,
                         'total_hours' => $ue->heures_cm + $ue->heures_td + $ue->heures_tp
                     ];
 
+                    \Log::info('✅ UE added to compatible list:', [
+                        'ue_id' => $ue->id,
+                        'ue_code' => $ue->code,
+                        'available_types' => $availableTypes
+                    ]);
                 } catch (\Exception $e) {
                     \Log::error('Error processing UE: ' . $e->getMessage(), [
                         'ue_id' => $ue->id ?? 'unknown',
@@ -2259,29 +2302,25 @@ class CoordonnateurController extends Controller
                         'error_line' => $e->getLine(),
                         'error_file' => $e->getFile()
                     ]);
-                    // Continue to next UE
                     continue;
                 }
             }
 
-            \Log::info('🔥 Final compatible UEs for vacataire (STRICT FILTERING):', [
+            \Log::info('🔥 Final compatible UEs for vacataire:', [
                 'vacataire_id' => $vacataireId,
                 'vacataire_name' => $vacataire->name,
                 'total_ues_found' => count($compatibleUEs),
                 'filtering_conditions' => [
                     'belongs_to_coordonnateur_filieres' => true,
-                    'not_affected_to_anyone' => true,
-                    'strict_speciality_match' => 'ALL UE specialities must be in vacataire specialities',
                     'est_vacant' => true,
                     'has_vacataire_types' => true,
-                    'session_types_not_assigned_to_any_user' => true,
-                    'shows_only_vacataire_approved_types' => true
+                    'flexible_speciality_match' => 'ANY UE speciality can match ANY vacataire speciality',
+                    'session_types_not_assigned_to_any_user' => true
                 ],
                 'sample_ues' => array_slice($compatibleUEs, 0, 3)
             ]);
 
             return response()->json($compatibleUEs);
-
         } catch (\Exception $e) {
             \Log::error('Error in getCompatibleUEs: ' . $e->getMessage(), [
                 'vacataire_id' => $vacataireId,

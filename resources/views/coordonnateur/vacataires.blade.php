@@ -18,6 +18,8 @@
     border-radius: 15px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .panel-title {
@@ -28,6 +30,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    flex-shrink: 0;
 }
 
 .ue-panel {
@@ -196,6 +199,32 @@
     .enseignant-panel {
         flex: none;
     }
+}
+
+#vacatairesList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    min-height: 0;
+}
+
+/* Custom scrollbar for vacatairesList */
+#vacatairesList::-webkit-scrollbar {
+    width: 6px;
+}
+
+#vacatairesList::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+}
+
+#vacatairesList::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+#vacatairesList::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
 }
 </style>
 @endpush

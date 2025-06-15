@@ -601,20 +601,6 @@
     <div class="actions-section">
         <h6 class="mb-3">Actions Disponibles</h6>
         
-        <button class="btn btn-primary btn-action" onclick="generateReport()">
-            <i class="fas fa-file-pdf me-2"></i>Générer Rapport PDF
-        </button>
-        
-        <button class="btn btn-success btn-action" onclick="exportExcel()">
-            <i class="fas fa-file-excel me-2"></i>Exporter Excel
-        </button>
-        
-        @if($status == 'insufficient')
-            <button class="btn btn-warning btn-action" onclick="suggestAffectations()">
-                <i class="fas fa-plus me-2"></i>Suggérer Affectations
-            </button>
-        @endif
-        
         <button class="btn btn-info btn-action" onclick="showHistory()">
             <i class="fas fa-history me-2"></i>Voir Historique
         </button>

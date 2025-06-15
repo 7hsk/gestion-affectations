@@ -97,6 +97,10 @@ Route::prefix('admin')->middleware(['auth', \App\Http\Middleware\CheckRole::clas
         ->name('admin.api.dashboard-stats');
     Route::get('api/recent-activities', [AdminController::class, 'getRecentActivitiesApi'])
         ->name('admin.api.recent-activities');
+
+    // Coordonnateur Filière Assignment
+    Route::get('/coordonnateur/{user}/assign-filiere', [UserController::class, 'showAssignFiliereForm'])->name('admin.coordonnateur.assign-filiere');
+    Route::put('/coordonnateur/{user}/assign-filiere', [UserController::class, 'assignFiliere'])->name('admin.coordonnateur.assign-filiere');
 });
 
 // Department Head Routes (TODO: Create ChefController)
@@ -376,6 +380,30 @@ Route::prefix('api')->middleware(['auth'])->group(function () {
     Route::post('/schedule/check-conflict', [App\Http\Controllers\Api\ScheduleController::class, 'checkConflict'])->name('api.schedule.check-conflict');
     Route::delete('/schedule/destroy', [App\Http\Controllers\Api\ScheduleController::class, 'destroy'])->name('api.schedule.destroy');
 });
+
+// Dashboard Route - Redirects to appropriate dashboard based on role
+Route::get('/dashboard', function () {
+    $user = auth()->user();
+
+    if (!$user) {
+        return redirect()->route('login');
+    }
+
+    switch ($user->role) {
+        case 'admin':
+            return redirect()->route('admin.dashboard');
+        case 'chef':
+            return redirect()->route('chef.dashboard');
+        case 'coordonnateur':
+            return redirect()->route('coordonnateur.dashboard');
+        case 'enseignant':
+            return redirect()->route('enseignant.dashboard');
+        case 'vacataire':
+            return redirect()->route('vacataire.dashboard');
+        default:
+            return redirect()->route('login');
+    }
+})->middleware(['auth'])->name('dashboard');
 
 // Fallback Route
 Route::fallback(function () {

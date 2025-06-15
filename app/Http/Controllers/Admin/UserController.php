@@ -4,8 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Models\User;
 use App\Models\Departement;
+use App\Models\Filiere;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class UserController extends \App\Http\Controllers\Controller
 {
@@ -78,7 +84,7 @@ class UserController extends \App\Http\Controllers\Controller
             'Réseaux électriques',
             'Commande des systèmes',
             'Développement logiciel',
-            'Systèmes d’exploitation',
+            'Systèmes d\'exploitation',
             'Sécurité informatique',
             'Intelligence artificielle',
             'Réseaux & cybersécurité',
@@ -157,7 +163,14 @@ class UserController extends \App\Http\Controllers\Controller
             ]
         );
 
-        return redirect()->route('admin.users.index')->with('success', 'User created successfully');
+        // If the user is a coordonnateur, redirect to filière assignment
+        if ($user->role === 'coordonnateur') {
+            return redirect()->route('admin.coordonnateur.assign-filiere', $user)
+                ->with('success', 'Utilisateur créé avec succès. Veuillez maintenant assigner une filière.');
+        }
+
+        return redirect()->route('admin.users.index')
+            ->with('success', 'Utilisateur créé avec succès');
     }
 
     public function show(User $user)
@@ -182,7 +195,7 @@ class UserController extends \App\Http\Controllers\Controller
             'Réseaux électriques',
             'Commande des systèmes',
             'Développement logiciel',
-            'Systèmes d’exploitation',
+            'Systèmes d\'exploitation',
             'Sécurité informatique',
             'Intelligence artificielle',
             'Réseaux & cybersécurité',
@@ -230,90 +243,74 @@ class UserController extends \App\Http\Controllers\Controller
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
-            'password' => 'nullable|string|min:8|confirmed',
-            'role' => 'required|in:admin,chef,coordonnateur,enseignant,vacataire,etudiant',
+            'role' => 'required|in:admin,chef,coordonnateur,enseignant,vacataire',
             'departement_id' => 'nullable|exists:departements,id',
-            'specialite' => 'nullable|array',
-            'filiere_base' => 'nullable|array',
-            'filiere_base.*' => 'string|in:GI,ID,GC,GM'
+            'specialite' => 'required|array'
         ]);
 
-        $data = [
+        $oldRole = $user->role;
+        $user->update([
             'name' => $request->name,
             'email' => $request->email,
             'role' => $request->role,
             'departement_id' => $request->departement_id,
-            'specialite' => $request->specialite ? implode(',', $request->specialite) : null
-        ];
-
-        if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
-        }
-
-        $oldData = $user->toArray();
-        $user->update($data);
+            'specialite' => implode(',', $request->specialite)
+        ]);
 
         // Log the user update activity
         \App\Models\Activity::log(
             'update',
             'user_updated',
-            "Utilisateur modifié: {$user->name} ({$user->role})",
+            "Utilisateur mis à jour: {$user->name} ({$user->role})",
             $user,
             [
                 'user_name' => $user->name,
                 'user_email' => $user->email,
-                'user_role' => $user->role,
-                'old_data' => $oldData,
-                'new_data' => $data,
+                'old_role' => $oldRole,
+                'new_role' => $user->role,
+                'department' => $user->departement->nom ?? 'Non assigné',
+                'specialite' => $user->specialite ?? 'Non spécifiée',
                 'updated_by' => auth()->user()->name
             ]
         );
 
-        // Handle filiere assignments for coordonnateur
-        if ($request->role === 'coordonnateur') {
-            // Remove existing filiere assignments
-            \Illuminate\Support\Facades\DB::table('coordonnateurs_filieres')
-                ->where('user_id', $user->id)
-                ->delete();
-
-            // Add new filiere assignments
-            if ($request->filled('filiere_base')) {
-                foreach ($request->filiere_base as $filiereBase) {
-                    $filieres = \App\Models\Filiere::where('nom', 'LIKE', $filiereBase . '%')->get();
-
-                    foreach ($filieres as $filiere) {
-                        \Illuminate\Support\Facades\DB::table('coordonnateurs_filieres')->insert([
-                            'user_id' => $user->id,
-                            'filiere_id' => $filiere->id,
-                            'created_at' => now(),
-                            'updated_at' => now()
-                        ]);
-                    }
-                }
-            }
+        // If the user is now a coordonnateur and wasn't before, redirect to filière assignment
+        if ($user->role === 'coordonnateur' && $oldRole !== 'coordonnateur') {
+            return redirect()->route('admin.coordonnateur.assign-filiere', $user)
+                ->with('success', 'Utilisateur mis à jour avec succès. Veuillez maintenant assigner une filière.');
         }
 
-        return redirect()->route('admin.users.index')->with('success', 'User updated successfully');
+        return redirect()->route('admin.users.index')
+            ->with('success', 'Utilisateur mis à jour avec succès');
     }
 
     public function destroy(User $user)
     {
-        // Log the user deletion activity before deleting
-        \App\Models\Activity::log(
-            'delete',
-            'user_deleted',
-            "Utilisateur supprimé: {$user->name} ({$user->role})",
-            $user,
-            [
-                'deleted_user_name' => $user->name,
-                'deleted_user_email' => $user->email,
-                'deleted_user_role' => $user->role,
-                'deleted_by' => auth()->user()->name
-            ]
-        );
+        try {
+            DB::transaction(function () use ($user) {
+                // If the user is a coordonnateur, delete their filière assignments
+                if ($user->role === 'coordonnateur') {
+                    // Delete all relationships in coordonnateurs_filieres table
+                    DB::table('coordonnateurs_filieres')
+                        ->where('user_id', $user->id)
+                        ->delete();
+                }
 
-        $user->delete();
-        return redirect()->route('admin.users.index')->with('success', 'User deleted successfully');
+                // Delete the user
+                $user->delete();
+            });
+
+            return redirect()->route('admin.users.index')
+                ->with('success', 'L\'utilisateur a été supprimé avec succès.');
+        } catch (\Exception $e) {
+            Log::error('Error deleting user', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return redirect()->route('admin.users.index')
+                ->with('error', 'Une erreur est survenue lors de la suppression de l\'utilisateur.');
+        }
     }
 
     // Export users to Excel/CSV
@@ -424,5 +421,51 @@ class UserController extends \App\Http\Controllers\Controller
         ];
 
         return response()->json($stats);
+    }
+
+    public function showAssignFiliereForm(User $user)
+    {
+        if ($user->role !== 'coordonnateur') {
+            return redirect()->route('admin.users.index')
+                ->with('error', 'Cette fonctionnalité est uniquement disponible pour les coordonnateurs.');
+        }
+
+        $filieres = \App\Models\Filiere::with('coordonnateurs')->get();
+        return view('admin.users.assign-filiere', compact('user', 'filieres'));
+    }
+
+    public function assignFiliere(Request $request, User $user)
+    {
+        $request->validate([
+            'filiere_base' => 'required|string'
+        ]);
+
+        // Get all filières that match the base name
+        $filieres = Filiere::where('nom', 'like', $request->filiere_base . '%')->get();
+
+        // Check if any of the filières are already assigned
+        $alreadyAssigned = $filieres->filter(function ($filiere) {
+            return $filiere->coordonnateurs->count() > 0;
+        });
+
+        if ($alreadyAssigned->isNotEmpty()) {
+            return back()->with('error', 'Certaines filières sont déjà assignées à d\'autres coordonnateurs.');
+        }
+
+        // Assign all matching filières
+        foreach ($filieres as $filiere) {
+            $user->filieres()->attach($filiere->id);
+        }
+
+        // Log the activity using Laravel's built-in logging
+        Log::info('Filières assignées au coordonnateur', [
+            'user_id' => $user->id,
+            'user_name' => $user->name,
+            'filieres' => $filieres->pluck('nom')->toArray(),
+            'assigned_by' => Auth::user()->name
+        ]);
+
+        return redirect()->route('admin.users.index')
+            ->with('success', 'Les filières ont été assignées avec succès.');
     }
 }
