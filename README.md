@@ -1,6 +1,9 @@
 <p align="center">
-  <iframe src="https://streamable.com/e/3o9mjr" allowfullscreen></iframe>
+  <a href="https://streamable.com/3o9mjr" target="_blank">
+    <img src="gestion-affectation/exodia-corp.jpg" alt="Watch Demo Video" width="640">
+  </a>
 </p>
+
 
 <h1 align="center">Gestion Affectations</h1>
 
