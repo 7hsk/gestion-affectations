@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://streamable.com/3o9mjr" target="_blank">
-    <img src="gestion-affectation/exodia-corp.jpg" alt="Watch Demo Video" width="640">
+    <img src="exodia-corp.jpg" alt="Watch Demo Video" width="640">
   </a>
 </p>
 
